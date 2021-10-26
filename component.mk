@@ -1,0 +1,14 @@
+COMPONENT_ADD_INCLUDEDIRS := freemodbus/common/include
+COMPONENT_PRIV_INCLUDEDIRS := freemodbus/common freemodbus/port freemodbus/modbus freemodbus/modbus/ascii freemodbus/modbus/functions
+COMPONENT_PRIV_INCLUDEDIRS += freemodbus/modbus/rtu freemodbus/modbus/tcp modbus/include
+COMPONENT_PRIV_INCLUDEDIRS += freemodbus/serial_slave/port freemodbus/serial_slave/modbus_controller
+COMPONENT_PRIV_INCLUDEDIRS += freemodbus/serial_master/port freemodbus/serial_master/modbus_controller
+COMPONENT_PRIV_INCLUDEDIRS += freemodbus/tcp_slave/port freemodbus/tcp_slave/modbus_controller
+COMPONENT_PRIV_INCLUDEDIRS += freemodbus/tcp_master/port freemodbus/tcp_master/modbus_controller
+COMPONENT_SRCDIRS := freemodbus/common
+COMPONENT_SRCDIRS += freemodbus/modbus freemodbus/modbus/ascii freemodbus/modbus/functions freemodbus/modbus/rtu freemodbus/modbus/tcp
+COMPONENT_SRCDIRS += freemodbus/serial_slave/port freemodbus/serial_slave/modbus_controller
+COMPONENT_SRCDIRS += freemodbus/serial_master/port freemodbus/serial_master/modbus_controller
+COMPONENT_SRCDIRS += freemodbus/tcp_slave/port freemodbus/tcp_slave/modbus_controller
+COMPONENT_SRCDIRS += freemodbus/tcp_master/port freemodbus/tcp_master/modbus_controller
+COMPONENT_SRCDIRS += freemodbus/port
