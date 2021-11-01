@@ -20,18 +20,6 @@
 
 /* ----------------------- Defines ------------------------------------------*/
 
-#define MB_MASTER_TAG "MB_CONTROLLER_MASTER"
-
-#define MB_MASTER_CHECK(a, ret_val, str, ...) \
-    if (!(a)) { \
-        ESP_LOGE(MB_MASTER_TAG, "%s(%u): " str, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-        return (ret_val); \
-    }
-
-#define MB_MASTER_ASSERT(con) do { \
-        if (!(con)) { ESP_LOGE(MB_MASTER_TAG, "assert errno:%d, errno_str: !(%s)", errno, strerror(errno)); assert(0 && #con); } \
-    } while (0)
-
 /**
  * @brief Request mode for parameter to use in data dictionary
  */

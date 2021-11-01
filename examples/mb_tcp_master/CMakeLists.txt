@@ -3,19 +3,13 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(EXTRA_COMPONENT_DIRS "../../")
-set(IDF_EXCLUDE_COMPONENTS test_app)
+set(EXCLUDE_COMPONENTS examples test_app freemodbus)
 
 # Include parameters from common modbus folder
-set(MB_PARAMS_DIR $ENV{IDF_PATH}/examples/protocols/modbus/mb_example_common)
-if(EXISTS ${MB_PARAMS_DIR}/include)
-    list(APPEND EXTRA_COMPONENT_DIRS ${MB_PARAMS_DIR})
-    message(STATUS "Use folder ${MB_PARAMS_DIR} for MB parameters.")
-else()
-    list(APPEND EXTRA_COMPONENT_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/../../test_app/mb_example_common")
-    message(STATUS "Use component folder ${MB_PARAMS_DIR} for MB parameters.")
-endif()
+set(MB_PARAMS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../test_app/mb_example_common")
+list(APPEND EXTRA_COMPONENT_DIRS "${MB_PARAMS_DIR}")
 
-# (Not part of the boilerplate)
+#(Not part of the boilerplate)
 # This example uses an extra component for common functions such as Wi-Fi and Ethernet connection.
 list(APPEND EXTRA_COMPONENT_DIRS $ENV{IDF_PATH}/examples/common_components/protocol_examples_common)
 

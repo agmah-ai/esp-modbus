@@ -41,41 +41,34 @@ function build_for_targets
     for IDF_TARGET in ${target_list}
     do
         export IDF_TARGET
-        if [[ "${IDF_TARGET}" = "esp32" ]]
-        then
-            echo "${STARS}"
-            echo "Building in $PWD with Make"
-            # -j option will be set via MAKEFLAGS in .gitlab-ci.yml
-            # shellcheck disable=SC2015
-            make defconfig && make || die "Make build in ${PWD} has failed"
-            rm -rf build
-        fi
-
         echo "${STARS}"
         echo "Building in $PWD with CMake for ${IDF_TARGET}"
-        if [[ ${IDF_TARGET} != "esp32" ]]
-        then
-            # IDF 4.0 doesn't support idf.py set-target, and only supports esp32.
-            idf.py set-target "${IDF_TARGET}"
-        fi
+        idf.py set-target "${IDF_TARGET}"
         idf.py build || die "CMake build in ${PWD} has failed for ${IDF_TARGET}"
         idf.py fullclean
     done
 }
 
-# Build the test app
-echo "${STARS}"
-pushd test_app
-build_for_targets "${TEST_TARGETS}"
-popd
-
-# Build the examples
-pushd examples
-EXAMPLES=$(find . -maxdepth 1 -mindepth 1 -type d | cut -d '/' -f 2)
-for NAME in ${EXAMPLES}
-do
-    pushd "${NAME}"
-    build_for_targets "${EXAMPLE_TARGETS}"
+function build_folders
+{
+    pushd "$1"
+    EXAMPLES=$(find . -maxdepth 1 -mindepth 1 -type d | cut -d '/' -f 2)
+    for NAME in ${EXAMPLES}
+    do
+        cd "${NAME}"
+        build_for_targets "${EXAMPLE_TARGETS}"
+        cd ..
+    done
     popd
-done
-popd
+}
+
+# Build the test apps
+echo "${STARS}"
+build_folders test_app/serial
+echo "${STARS}"
+build_folders test_app/tcp
+echo "${STARS}"
+# Build the examples
+build_folders examples
+echo "${STARS}"
+

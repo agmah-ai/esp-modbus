@@ -16,6 +16,16 @@
 extern "C" {
 #endif
 
+#define MB_MASTER_CHECK(a, ret_val, str, ...) \
+    if (!(a)) { \
+        ESP_LOGE(TAG, "%s(%u): " str, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+        return (ret_val); \
+    }
+
+#define MB_MASTER_ASSERT(con) do { \
+        if (!(con)) { ESP_LOGE(TAG, "assert errno:%d, errno_str: !(%s)", errno, strerror(errno)); assert(0 && #con); } \
+    } while (0)
+
 /*!
  * \brief Modbus descriptor table parameter type defines.
  */

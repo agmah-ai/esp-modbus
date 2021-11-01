@@ -27,6 +27,7 @@
  */
 
 /* ----------------------- Platform includes --------------------------------*/
+#include "esp_idf_version.h"
 #include "port.h"
 
 /* ----------------------- Modbus includes ----------------------------------*/
@@ -63,7 +64,7 @@ BOOL xMBMasterPortTimersInit(USHORT usTimeOut50us)
     esp_timer_create_args_t xTimerConf = {
         .callback = vTimerAlarmCBHandler,
         .arg = NULL,
-#if CONFIG_FMB_TIMER_USE_ISR_DISPATCH_METHOD
+#if CONFIG_FMB_TIMER_USE_ISR_DISPATCH_METHOD && ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
         .dispatch_method = ESP_TIMER_ISR,
 #else
         .dispatch_method = ESP_TIMER_TASK,
