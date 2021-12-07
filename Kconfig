@@ -204,4 +204,34 @@ menu "Modbus configuration"
                 This option has dependency with the UART_ISR_IN_IRAM option which places UART interrupt
                 handler into IRAM to prevent delays related to processing of UART events.
 
+    config MB_UTEST
+        bool "Enable unit test"
+        default y
+        help
+            if selected the Modbus Unit Test compilation is performed.
+
+    config MB_UTEST_DEBUG
+        bool "Enable unit test debug option"
+        default n
+        help
+            if selected the Modbus Unit Test shows the debug messages.    
+
+    choice MB_UTEST_LOG_OR_OVERRIDE
+        prompt "Log packet data to FS or get data from FS"
+        default MB_UTEST_LOG
+        help
+            Configure whether the Modbus UnitTest logs incoming and outgoing packets
+            into FS or get response data from FS instead of physical layer.
+
+        config MB_UTEST_LOG
+            bool "Log input/output packets into FS file"
+        config MB_UTEST_OVERRIDE
+            bool "Get incoming data from FS file instead of physical layer"
+    endchoice
+
+    config MB_UTEST_INIT_FS
+        bool "Initialize files system on flash"
+        help
+            if selected FS initialized from local folder on start.
+
 endmenu

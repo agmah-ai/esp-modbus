@@ -63,3 +63,9 @@ idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS "${include_dirs}"
                     PRIV_INCLUDE_DIRS "${priv_include_dirs}"
                     REQUIRES driver)
+
+if(CONFIG_MB_UTEST) # allows to use private modbus files
+    message(STATUS "Enable modbus testing")
+    add_subdirectory(freemodbus/unit_test/mb_utest_lib)
+    target_link_libraries(${COMPONENT_LIB} PUBLIC mb_ut_lib)
+endif()

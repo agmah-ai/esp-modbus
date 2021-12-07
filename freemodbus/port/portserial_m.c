@@ -258,6 +258,25 @@ BOOL xMBMasterPortSerialInit( UCHAR ucPORT, ULONG ulBaudRate, UCHAR ucDataBits, 
     return TRUE;
 }
 
+/*
+ * The function is called from ASCII/RTU module to get processed data buffer. Sets the
+ * received buffer and its length using parameters.
+ */
+BOOL xMBMasterSerialPortGetResponse( UCHAR **ppucMBSerialFrame, USHORT * usSerialLength )
+{
+    BOOL eStatus = TRUE;
+    return eStatus;
+}
+
+/*
+ * The function is called from ASCII/RTU module to set processed data buffer
+ * to be sent in transmitter state machine.
+ */
+BOOL xMBMasterSerialPortSendRequest( UCHAR *pucMBSerialFrame, USHORT usSerialLength )
+{
+    return TRUE;
+}
+
 void vMBMasterPortSerialClose(void)
 {
     (void)vTaskDelete(xMbTaskHandle);
