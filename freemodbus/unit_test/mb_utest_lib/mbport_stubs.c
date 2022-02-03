@@ -8,15 +8,9 @@
 #include "port.h"
 #include "esp_log.h"
 #include "esp_err.h"
+
 #include "ut_io.h"
 #include "mbport_stubs.h"
-
-//#define static /* */
-
-//#include "port_tcp_master.c"
-
-//#define xMBTCPPortMasterConnect _xMBTCPPortMasterConnect
-//#define xMBTCPPortMasterConnect _xMBTCPPortMasterConnect
 
 #define TAG "MBPORT_STUB"
 
@@ -26,26 +20,27 @@
 extern "C" {
 #endif
 
-static UCHAR* input_buffer = NULL;
-static USHORT input_length = 0;
-
 #define MB_WRAPPER_LOG_GET(frame_addr, frame_length, frame_get_method) do { \
     UT_LOGI("UT", "Func wrapper called: %s.", __func__); \
     BOOL ret = frame_get_method(frame_addr, frame_length); \
     UT_RETURN_ON_FALSE((*frame_addr && frame_length), FALSE, TAG, "wrong get request pointers."); \
-    esp_err_t err = ut_stream_capture_packet(PCAP_INPUT, (uint8_t*)*frame_addr, (uint32_t)*frame_length, 0); \
+    esp_err_t err = ut_stream_capture_packet(DIRECTION_INPUT, (uint8_t*)*frame_addr, (uint32_t)*frame_length, 0); \
     UT_RETURN_ON_FALSE(err == ESP_OK, FALSE, TAG, "fail to override packet."); \
     return ret; \
 } while (0)
 
 #define MB_WRAPPER_LOG_SEND(frame_addr, frame_length, frame_send_method) do { \
     UT_LOGI("UT", "Func wrapper called: %s.", __func__); \
-    esp_err_t err = ut_stream_capture_packet(PCAP_OUTPUT, (uint8_t*)frame_addr, (uint32_t)frame_length, 0); \
+    esp_err_t err = ut_stream_capture_packet(DIRECTION_OUTPUT, (uint8_t*)frame_addr, (uint32_t)frame_length, 0); \
     UT_RETURN_ON_FALSE((err == ESP_OK), FALSE, TAG, "fail to capture packet."); \
     return frame_send_method(frame_addr, frame_length); \
 } while (0)
 
 //return frame_send_method(frame_addr, frame_length);
+#define MB_WRAPPER_OVERRIDE_SEND(frame_addr, frame_length, frame_send_method) return 0;
+#define MB_WRAPPER_OVERRIDE_GET(frame_addr, frame_length, frame_get_method) return 0;
+
+#if 0
 
 #define MB_WRAPPER_OVERRIDE_SEND(frame_addr, frame_length, frame_send_method) do { \
     UT_LOGI("UT", "Func wrapper called: %s.", __func__); \
@@ -65,6 +60,9 @@ static USHORT input_length = 0;
     return result; \
 } while (0)
 
+#endif
+
+/*
 void mb_master_serial_poll_cb(const UCHAR* pucPDUData, USHORT ucPDULength)
 {
     //__real_usMBMasterPortSerialRxPoll(ucPDULength);
@@ -73,21 +71,15 @@ void mb_master_serial_poll_cb(const UCHAR* pucPDUData, USHORT ucPDULength)
     input_length = ucPDULength;
     vMBMasterSetCurTimerMode(MB_TMODE_T35);
     xMBMasterPortEventPost(EV_MASTER_FRAME_RECEIVED);
-    //pxMBMasterPortCBTimerExpired();
 }
-
-USHORT __wrap_usMBMasterPortSerialRxPoll(size_t xEventSize)
-{
-    UT_LOGI("UT", "Func wrapper called: %s.", __func__);
-    return xEventSize; //__real_usMBMasterPortSerialRxPoll(xEventSize);
-}
+*/
 
 void __wrap_vMBMasterErrorCBRespondTimeout( UCHAR ucDestAddress, const UCHAR* pucPDUData,
                                                 USHORT ucPDULength )
 {
 #if CONFIG_MB_UTEST_LOG
     UT_LOGI("UT", "Func wrapper called: %s.", __func__);
-    ut_stream_capture_packet(PCAP_INPUT, NULL, 0, 0);
+    ut_stream_capture_packet(DIRECTION_INPUT, NULL, 0, 0);
     __real_vMBMasterErrorCBRespondTimeout(ucDestAddress, pucPDUData, ucPDULength);
 #endif
 }
@@ -112,7 +104,6 @@ BOOL __wrap_xMBMasterTCPPortInit( USHORT usTCPPort )
 {
     UT_LOGI("UT", "Func wrapper called: %s.", __func__);
     ut_init("mbm_tcp");
-    //xMBTCPPortMasterConnect(NULL);
     return __real_xMBMasterTCPPortInit(usTCPPort);
 }
 
@@ -206,11 +197,13 @@ BOOL __wrap_xMBMasterPortSerialGetByte(CHAR* pucByte)
 #if CONFIG_MB_UTEST_LOG
     res = __real_xMBMasterPortSerialGetByte(pucByte);
 #elif CONFIG_MB_UTEST_OVERRIDE
+    #if 0
     if (input_buffer && pucByte) {
         *pucByte = *input_buffer++;
         UT_LOGI("UT", "Func wrapper called: %s, byte:0x%x.", __func__, *pucByte);
         res = TRUE;
     }
+    #endif
 #endif
     return res;
 }
@@ -273,7 +266,7 @@ void __wrap_vMBTCPPortClose(void)
 }
 
 // Override the function definition in source file
-err_t  __wrap_xMBTCPPortMasterConnect(MbSlaveInfo_t* pxInfo)
+err_t __wrap_xMBTCPPortMasterConnect(MbSlaveInfo_t* pxInfo)
 {
     ESP_LOGE("UT", "Func wrapper called: %s.", __func__);
     return ERR_OK;

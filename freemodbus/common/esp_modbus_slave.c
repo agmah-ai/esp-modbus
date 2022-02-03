@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: 2016-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2016-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #include "esp_err.h"                // for esp_err_t
+#include "esp_timer.h"              // for esp_timer_get_time()
 #include "sdkconfig.h"              // for KConfig defines
 
 #include "mbc_slave.h"              // for slave private type definitions
@@ -34,7 +35,7 @@ static uint8_t mb_slave_id[] = { MB_ID_BYTE0(MB_CONTROLLER_SLAVE_ID),
 
 // Common interface pointer for slave port
 static mb_slave_interface_t* slave_interface_ptr = NULL;
-static const char *TAG = "MB_CONTROLLER_SLAVE";
+static const char TAG[] __attribute__((unused)) = "MB_CONTROLLER_SLAVE";
 
 // Searches the register in the area specified by type, returns descriptor if found, else NULL
 static mb_descr_entry_t* mbc_slave_find_reg_descriptor(mb_param_type_t type, uint16_t addr, size_t regs)

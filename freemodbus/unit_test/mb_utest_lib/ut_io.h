@@ -9,23 +9,31 @@
 #include <stdio.h>
 #include <stdio.h>
 #include <string.h>
+#include <esp_compiler.h>               // for unlikely macro
 #include <sys/unistd.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <limits.h>
 #include <sys/time.h>
-#include <sys/queue.h>      // for list
+#include <sys/queue.h>                  // for list
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"              // for task handling
+#include "freertos/stream_buffer.h"     // for stream buffer
+#include "freertos/queue.h"             // for queue
 
-//#include "freertos/task.h"
-#include "esp_compiler.h"
 #include "esp_err.h"
 #include "stdint.h"
 #include "esp_timer.h"
 #include "esp_attr.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
-
 #include "pcap.h"
+
+#define UT_TASK_AFFINITY            0
+#define UT_TASK_PRIORITY            7
+#define UT_TASK_STACK_SIZE          4096
+#define UT_STREAM_BUF_SIZE          (255)
+#define UT_TASK_EVENT_TOUT_MS       300
 
 #if __has_include("esp_idf_version.h")
 #include "esp_idf_version.h"
@@ -101,9 +109,10 @@ extern "C" {
 #endif
 
 typedef enum {
-    PCAP_INPUT,
-    PCAP_OUTPUT
-} pcap_direction_t;
+    DIRECTION_NOT_SET,
+    DIRECTION_INPUT,
+    DIRECTION_OUTPUT
+} direction_t;
 
 typedef struct pack_data_entry_s {
     int file_pos;
@@ -123,29 +132,38 @@ typedef struct {
     bool link_type_set;
     char* filename;
     char* stream_name;
+    direction_t direction;
     uint32_t packet_count;
     pcap_file_handle_t pcap_handle;
     pcap_link_type_t link_type;
+    StreamBufferHandle_t stream_buffer_handle;
+    QueueHandle_t queue_handle;
+    int curr_index;
+    pack_data_entry_t* pcur_item;
+    esp_timer_handle_t timer_handle;
     LIST_HEAD(pack_entries_, pack_data_entry_s) pack_entries;
-} pcap_runtime_t;
+} stream_t;
 
 typedef struct ut_lister_s {
-    //TaskHandle_t  ut_task_handle;
+    TaskHandle_t  ut_task_handle;
     //QueueHandle_t ut_queue_handle;
-    esp_timer_handle_t ut_timer_handler;
+    //esp_timer_handle_t ut_timer_handler;
+    stream_t stream_input;
+    stream_t stream_output;
     uint32_t packet_index;
-    pack_data_entry_t* pcur_item;
-    pcap_runtime_t pcap_rt_input;
-    pcap_runtime_t pcap_rt_output;
+    QueueHandle_t queue_handle;
 } ut_lister_t;
 
 esp_err_t ut_init(const char* port_prefix);
 void ut_close(void);
-esp_err_t ut_stream_capture_packet(pcap_direction_t direction, void *payload, uint32_t length, uint16_t crc);
+esp_err_t ut_get_notification(direction_t direction, struct timeval time);
+int ut_get_stream_data(direction_t direction, void* pdata, size_t data_length, uint32_t timeout_ms);
+
+esp_err_t ut_stream_capture_packet(direction_t direction, void *payload, uint32_t length, uint16_t crc);
 esp_err_t ut_stream_override_packet(void *payload, uint32_t length);
-esp_err_t ut_stream_insert_packet(pcap_direction_t direction, int index, void *payload, uint32_t length);
-void ut_print_list(pcap_direction_t direction);
-esp_err_t ut_stream_set_packet_data(pcap_direction_t direction, int index, void *payload, uint32_t length);
+esp_err_t ut_stream_insert_packet(direction_t direction, int index, void *payload, uint32_t length);
+void ut_print_list(direction_t direction);
+esp_err_t ut_stream_set_packet_data(direction_t direction, int index, void *payload, uint32_t length);
 
 //#undef uart_hal_read_rxfifo
 

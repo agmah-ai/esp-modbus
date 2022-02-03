@@ -53,7 +53,7 @@ const mb_parameter_descriptor_t device_parameters[] = {
 const uint16_t num_device_parameters = (sizeof(device_parameters)/sizeof(device_parameters[0]));
 
 char* slave_ip_address_table[ 2 ] = { 
-        "192.168.32.58",
+        "192.168.1.239",
         NULL 
     };
 
@@ -120,7 +120,7 @@ static void master_read_write_func(void *arg)
     
     for(uint16_t retry = 0; retry <= MASTER_MAX_RETRY; retry++) {
         // Simply read your register here CID_DEV_REG0 - one register from address 0 (see device_parameters)
-        err = read_modbus_parameter(CID_DEV_REG0, &register_data);   
+        err = read_modbus_parameter(CID_DEV_REG0, &register_data);
         // if read successful then increase value of the parameter
         // Insert your modbus read_write register functionality here
         register_data += 1;
@@ -134,7 +134,7 @@ static void master_read_write_func(void *arg)
     ESP_LOGI(MASTER_TAG, "Modbus test is completed.");
 }
 
-static esp_err_t init_services(mb_tcp_addr_type_t ip_addr_type)
+esp_err_t init_services(mb_tcp_addr_type_t ip_addr_type)
 {
     esp_err_t result = nvs_flash_init();
     if (result == ESP_ERR_NVS_NO_FREE_PAGES || result == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -211,12 +211,54 @@ static esp_err_t master_init(void)
     return err;
 }
 
+#include "esp_heap_trace.h"
+#include "port_tcp_master_test.h"
+
+#define NUM_RECORDS 200
+static heap_trace_record_t trace_record[NUM_RECORDS]; // This buffer must be in internal RAM
+
 void app_main(void)
 {
     // Initialization of device peripheral and objects
     ESP_ERROR_CHECK(master_init());
     vTaskDelay(10);
+
+    ESP_ERROR_CHECK( heap_trace_init_standalone(trace_record, NUM_RECORDS) );
+    ESP_ERROR_CHECK( heap_trace_start(HEAP_TRACE_LEAKS) );
+
+    uint8_t** pclientbuf = calloc(5, sizeof(uint8_t*));
+    if (!pclientbuf) {
+        ESP_LOGE("TEST", "TCP pclientbuf alloc failure.");
+    }
+
+    uint8_t* pdata = (uint8_t*)calloc(10, sizeof(uint8_t));
+    pclientbuf[0] = pdata;
+    pclientbuf[1] = pdata;
+    pclientbuf[2] = pdata;
+
+    ESP_LOGI("TEST", "pdata pointer= 0x%p", pdata);
+    ESP_LOGI("TEST", "pclientbuf pointer= 0x%p(0x%p, 0x%p, 0x%p)", 
+                            pclientbuf, *pclientbuf, pclientbuf[1], pclientbuf[2]);
+
+    free(pclientbuf[0]);
+
+    ESP_LOGI("TEST", "free pdata pointer= 0x%p", pdata);
     
+    pdata = NULL;
+
+    free(pclientbuf);
+    ESP_LOGI("TEST", "free pclientbuf pointer= 0x%p", pclientbuf);
+    pclientbuf = NULL;
+
+    ESP_ERROR_CHECK( heap_trace_stop() );
+    heap_trace_dump();
+    ip_addr_t ipaddr;
+    if (!test_xMBTCPPortMasterCheckHost("192.168.1.3", &ipaddr))
+    {
+        ESP_LOGE("APP_UT", "test_xMBTCPPortMasterCheckHost() test fail.");
+    } else {
+        ESP_LOGI("APP_UT", "test_xMBTCPPortMasterCheckHost() test passed.");
+    }
     // Write registers to predefined state
     uint16_t register_data = 0x1234;
     write_modbus_parameter(CID_DEV_REG0, &register_data);

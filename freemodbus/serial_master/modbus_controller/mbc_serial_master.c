@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2016-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2016-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -29,9 +29,9 @@ extern BOOL xMBMasterPortSerialTxPoll(void);
 /*-----------------------Master mode use these variables----------------------*/
 #define MB_RESPONSE_TICS pdMS_TO_TICKS(CONFIG_FMB_MASTER_TIMEOUT_MS_RESPOND + 10)
 
-static const char *TAG = "MB_CONTROLLER_MASTER";
 
-static mb_master_interface_t* mbm_interface_ptr = NULL; //&default_interface_inst;
+static mb_master_interface_t* mbm_interface_ptr = NULL;
+static const char *TAG = "MB_CONTROLLER_MASTER";
 
 // Modbus event processing task
 static void modbus_master_task(void *pvParameters)

@@ -16,11 +16,7 @@
 extern "C" {
 #endif
 
-#define MB_MASTER_CHECK(a, ret_val, str, ...) \
-    if (!(a)) { \
-        ESP_LOGE(TAG, "%s(%u): " str, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-        return (ret_val); \
-    }
+#define MB_MASTER_CHECK(a, err_code, format, ...) MB_RETURN_ON_FALSE(a, err_code, TAG, format __VA_OPT__(,) __VA_ARGS__)
 
 #define MB_MASTER_ASSERT(con) do { \
         if (!(con)) { ESP_LOGE(TAG, "assert errno:%d, errno_str: !(%s)", errno, strerror(errno)); assert(0 && #con); } \

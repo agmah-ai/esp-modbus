@@ -11,8 +11,14 @@
 #include "mbcrc.h"
 #include "mb_m.h"
 #include "esp_modbus_master.h"
-#include "port_tcp_master.h"    // required for modbus tcp port types (the header exposed by cmake file)
-#include "lwip/err.h"           // needs just for exposing of the TCP stack port functions
+#include "port_tcp_master.h"            // required for modbus tcp port types (the header exposed by cmake file)
+#include "port_tcp_slave.h"            // required for modbus tcp port types (the header exposed by cmake file)
+
+#include "lwip/err.h"                   // needs just for exposing of the TCP stack port functions
+#include "lwip/netdb.h"                 // for getaddrinfo
+#include "lwip/sockets.h"               // for socket
+#include "esp_wifi_types.h"             // for esp_wifi_set_ps()
+#include "esp_netif.h"                  // for esp_netif_t
 
 #if CONFIG_MB_UTEST
 
@@ -21,10 +27,8 @@
     ESP_EARLY_LOGI(tag, str, __VA_ARGS__); \
 } while(0)
 #else
-    #define TEST_LOG(tag, str, ...) void
+    #define TEST_LOG(tag, str, ...)
 #endif
-
-void mb_master_serial_poll_cb(const UCHAR* pucPDUData, USHORT ucPDULength);
 
 extern USHORT __real_usMBMasterPortSerialRxPoll(size_t xEventSize);
 
@@ -75,6 +79,8 @@ extern BOOL __real_xMBMasterPortEventGet(eMBMasterEventType* eEvent);
 extern eMBMasterReqErrCode __real_eMBMasterWaitRequestFinish( void );
 
 extern err_t __real_xMBTCPPortMasterConnect(MbSlaveInfo_t* pxInfo);
+
+extern esp_err_t __wrap_init_services(mb_tcp_addr_type_t ip_addr_type);
 
 //extern esp_err_t __real_mbc_master_send_request(mb_param_request_t* request, void* data_ptr);
 
