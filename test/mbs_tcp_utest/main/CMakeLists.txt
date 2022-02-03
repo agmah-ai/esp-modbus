@@ -1,7 +1,11 @@
-idf_component_register(SRCS "master.c"
+set(PROJECT_NAME "modbus_tcp_slave")
+
+idf_component_register(SRCS "tcp_slave.c"
                     INCLUDE_DIRS ".")
 
 if(CONFIG_MB_UTEST)
+    message(STATUS "Enable testing in main")
+    #target_link_libraries(${COMPONENT_LIB} PUBLIC "-Wl,-zmuldefs")
     set(UT_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../fs")
     if(CONFIG_MB_UTEST_INIT_FS)
         if(EXISTS ${UT_SRC_DIR})
@@ -14,5 +18,4 @@ if(CONFIG_MB_UTEST)
     else()
         message(STATUS "${UT_SRC_DIR} not included into image.")
     endif()
-
 endif()

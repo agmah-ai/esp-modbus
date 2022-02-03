@@ -101,7 +101,7 @@ static esp_err_t mbc_serial_master_start(void)
             "mb stack initialization failure, eMBInit() returns (0x%x).", status);
     status = eMBMasterEnable();
     MB_MASTER_CHECK((status == MB_ENOERR), ESP_ERR_INVALID_STATE,
-            "mb stack set slave ID failure, eMBMasterEnable() returned (0x%x).", (uint32_t)status);
+            "mb stack enable failure, eMBMasterEnable() returned (0x%x).", (uint32_t)status);
     // Set the mbcontroller start flag
     EventBits_t flag = xEventGroupSetBits(mbm_opts->mbm_event_group,
                                             (EventBits_t)MB_EVENT_STACK_STARTED);

@@ -224,14 +224,14 @@ menu "Modbus configuration"
             into FS or get response data from FS instead of physical layer.
 
         config MB_UTEST_LOG
-            bool "Log input/output packets into FS file"
+            bool "Log input/output packets into file in test FS"
         config MB_UTEST_OVERRIDE
             bool "Get incoming data from FS file instead of physical layer"
     endchoice
 
     config MB_UTEST_INIT_FS
-        bool "Initialize files system on flash"
+        bool "Initialize test file system in flash"
         help
-            if selected FS initialized from local folder on start.
+            if selected the test file system shall be initialized from local FS folder on start.
 
 endmenu

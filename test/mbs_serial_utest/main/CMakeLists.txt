@@ -1,4 +1,5 @@
-idf_component_register(SRCS "master.c"
+set(PROJECT_NAME "modbus_slave")
+idf_component_register(SRCS "slave.c"
                     INCLUDE_DIRS ".")
 
 if(CONFIG_MB_UTEST)
@@ -14,5 +15,4 @@ if(CONFIG_MB_UTEST)
     else()
         message(STATUS "${UT_SRC_DIR} not included into image.")
     endif()
-
 endif()

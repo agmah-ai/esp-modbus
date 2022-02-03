@@ -181,7 +181,7 @@ eMBMasterASCIIReceive( UCHAR * pucRcvAddress, UCHAR ** pucFrame, USHORT * pusLen
 
        /* Return the start of the Modbus PDU to the caller. */
        *pucFrame = ( UCHAR * ) & pucMBASCIIFrame[MB_SER_PDU_PDU_OFF];
-   } else {
+    } else {
         eStatus = MB_EIO;
     }
     EXIT_CRITICAL_SECTION(  );

@@ -164,6 +164,8 @@ eMBMasterRTUReceive( UCHAR * pucRcvAddress, UCHAR ** pucFrame, USHORT * pusLengt
     UCHAR          *pucMBRTUFrame = ( UCHAR* ) ucMasterRTURcvBuf;
     USHORT          usFrameLength = usMasterRcvBufferPos;
 
+    ESP_LOG_BUFFER_HEXDUMP(__func__, pucMBRTUFrame, usFrameLength, ESP_LOG_WARN);
+
     if( xMBMasterSerialPortGetResponse( &pucMBRTUFrame, &usFrameLength ) == FALSE )
     {
         return MB_EIO;
@@ -245,18 +247,14 @@ eMBMasterRTUSend( UCHAR ucSlaveAddress, const UCHAR * pucFrame, USHORT usLength 
     }
     return eStatus;
 }
-
 BOOL
 xMBMasterRTUReceiveFSM( void )
 {
     BOOL            xStatus = FALSE;
     UCHAR           ucByte;
-
     assert(( eSndState == STATE_M_TX_IDLE ) || ( eSndState == STATE_M_TX_XFWR ));
-
     /* Always read the character. */
     xStatus = xMBMasterPortSerialGetByte( ( CHAR * ) & ucByte );
-
     switch ( eRcvState )
     {
         /* If we have received a character in the init state we have to
@@ -265,14 +263,12 @@ xMBMasterRTUReceiveFSM( void )
     case STATE_M_RX_INIT:
         vMBMasterPortTimersT35Enable( );
         break;
-
         /* In the error state we wait until all characters in the
          * damaged frame are transmitted.
          */
     case STATE_M_RX_ERROR:
         vMBMasterPortTimersT35Enable( );
         break;
-
         /* In the idle state we wait for a new character. If a character
          * is received the t1.5 and t3.5 timers are started and the
          * receiver is in the state STATE_M_RX_RCV and disable early
@@ -284,7 +280,6 @@ xMBMasterRTUReceiveFSM( void )
          */
         vMBMasterPortTimersDisable( );
         eSndState = STATE_M_TX_IDLE;
-
         usMasterRcvBufferPos = 0;
         if( xStatus && ucByte ) {
             ucMasterRTURcvBuf[usMasterRcvBufferPos++] = ucByte;

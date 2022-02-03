@@ -59,7 +59,32 @@ add_prefix(priv_include_dirs "${CMAKE_CURRENT_LIST_DIR}/freemodbus/" ${priv_incl
 
 message(STATUS "DEBUG: Use esp-modbus component folder: ${CMAKE_CURRENT_LIST_DIR}.")
 
+set(dep_inj_dir "${CMAKE_CURRENT_LIST_DIR}/freemodbus/unit_test")
+
+if(CONFIG_MB_UTEST)
+    set(dep_inj_dir "${CMAKE_CURRENT_LIST_DIR}/freemodbus/unit_test")
+    list(APPEND priv_include_dirs "${dep_inj_dir}/include")
+    foreach(src ${srcs})
+        get_filename_component(src_wo_ext ${src} NAME_WE)
+        message(STATUS "file without extention: ${src_wo_ext}")
+        if(EXISTS "${dep_inj_dir}/src/${src_wo_ext}_test.c")
+            message(STATUS "file without extention: ${src_wo_ext}")
+            list(REMOVE_ITEM srcs ${src})
+            list(APPEND srcs "${dep_inj_dir}/src/${src_wo_ext}_test.c")
+            set_property(SOURCE ${src} APPEND_STRING PROPERTY COMPILE_FLAGS
+                " -include ${dep_inj_dir}/include/${src_wo_ext}_test.h -include ${dep_inj_dir}/include/dep_inject.h")
+            #get_property(SOURCE ${src} PROPERTY DIRECTORY)
+        endif()
+    endforeach()
+endif()
+
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS "${include_dirs}"
                     PRIV_INCLUDE_DIRS "${priv_include_dirs}"
                     REQUIRES driver lwip)
+
+if(CONFIG_MB_UTEST)
+    message(STATUS "SOURCES: ${srcs}")
+    add_subdirectory(freemodbus/unit_test/mb_utest_lib)
+    target_link_libraries(${COMPONENT_LIB} PUBLIC mb_ut_lib)
+endif()

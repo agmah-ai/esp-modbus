@@ -677,6 +677,7 @@ vMBTCPPortDisable( void )
     free(xConfig.pxMbClientInfo);
     close(xListenSock);
     xListenSock = -1;
+    vTaskSuspend(xConfig.xMbTcpTaskHandle);
     vMBTCPPortRespQueueDelete(xConfig.xRespQueueHandle);
 }
 

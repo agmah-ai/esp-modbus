@@ -184,7 +184,7 @@ void prvvMBTCPLogFrame( const CHAR * pucMsg, UCHAR * pucFrame, USHORT usFrameLen
 void vMBPortSetMode( UCHAR ucMode );
 UCHAR ucMBPortGetMode( void );
 
-BOOL xMBPortSerialWaitEvent(QueueHandle_t xMbUartQueue, uart_event_t* pxEvent, ULONG xTimeout);
+BOOL xMBPortSerialWaitEvent(QueueHandle_t xMbUartQueue, void* pxEvent, ULONG xTimeout);
 
 #ifdef __cplusplus
 PR_END_EXTERN_C

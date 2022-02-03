@@ -273,7 +273,9 @@ xMBRTUReceiveFSM( void )
         eRcvState = STATE_RX_RCV;
 
         /* Enable t3.5 timers. */
+#if CONFIG_FMB_TIMER_PORT_ENABLED        
         vMBPortTimersEnable(  );
+#endif
         break;
 
         /* We are currently receiving a frame. Reset the timer after
@@ -292,7 +294,9 @@ xMBRTUReceiveFSM( void )
         {
             eRcvState = STATE_RX_ERROR;
         }
+#if CONFIG_FMB_TIMER_PORT_ENABLED
         vMBPortTimersEnable(  );
+#endif
         break;
     }
 

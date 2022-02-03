@@ -36,7 +36,6 @@
 
 #include "driver/uart.h"
 #include "port.h"
-#include "driver/uart.h"
 #include "freertos/queue.h" // for queue support
 #include "soc/uart_periph.h"
 #include "driver/gpio.h"
@@ -132,7 +131,7 @@ static void vUartTask(void *pvParameters)
             switch(xEvent.type) {
                 //Event of UART receving data
                 case UART_DATA:
-                    ESP_LOGD(TAG,"Data event, length: %d", xEvent.size);
+                    ESP_LOGI(TAG,"Data event, length: %d", xEvent.size);
                     // This flag set in the event means that no more
                     // data received during configured timeout and UART TOUT feature is triggered
                     if (xEvent.timeout_flag) {

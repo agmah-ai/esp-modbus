@@ -611,14 +611,14 @@ eMBErrorCode eMBRegInputCBTcpMaster(UCHAR* pucRegBuffer, USHORT usAddress, USHOR
  */
 // Callback function for reading of MB Holding Registers
 // Executed by stack when request to read/write holding registers is received
-eMBErrorCode eMBRegHoldingCBTcpMaster(UCHAR *pucRegBuffer, USHORT usAddress,
-                                      USHORT usNRegs, eMBRegisterMode eMode)
+eMBErrorCode eMBRegHoldingCBTcpMaster(UCHAR* pucRegBuffer, USHORT usAddress,
+        USHORT usNRegs, eMBRegisterMode eMode)
 {
     MB_MASTER_ASSERT(mbm_interface_ptr != NULL);
-    mb_master_options_t *mbm_opts = &mbm_interface_ptr->opts;
+    mb_master_options_t* mbm_opts = &mbm_interface_ptr->opts;
     MB_MASTER_ASSERT(pucRegBuffer != NULL);
     USHORT usRegHoldingNregs = (USHORT)mbm_opts->mbm_reg_buffer_size;
-    UCHAR *pucHoldingBuffer = (UCHAR *)mbm_opts->mbm_reg_buffer_ptr;
+    UCHAR* pucHoldingBuffer = (UCHAR*)mbm_opts->mbm_reg_buffer_ptr;
     eMBErrorCode eStatus = MB_ENOERR;
     USHORT usRegs = usNRegs;
     // Check input and configuration parameters for correctness
@@ -661,7 +661,7 @@ eMBErrorCode eMBRegHoldingCBTcpMaster(UCHAR *pucRegBuffer, USHORT usAddress,
  * @return result
  */
 // Callback function for reading of MB Coils Registers
-eMBErrorCode eMBRegCoilsCBTcpMaster(UCHAR *pucRegBuffer, USHORT usAddress,
+eMBErrorCode eMBRegCoilsCBTcpMaster(UCHAR* pucRegBuffer, USHORT usAddress,
                                     USHORT usNCoils, eMBRegisterMode eMode)
 {
     MB_MASTER_ASSERT(mbm_interface_ptr != NULL);
@@ -712,7 +712,7 @@ eMBErrorCode eMBRegCoilsCBTcpMaster(UCHAR *pucRegBuffer, USHORT usAddress,
  * @return result
  */
 // Callback function for reading of MB Discrete Input Registers
-eMBErrorCode eMBRegDiscreteCBTcpMaster(UCHAR * pucRegBuffer, USHORT usAddress,
+eMBErrorCode eMBRegDiscreteCBTcpMaster(UCHAR* pucRegBuffer, USHORT usAddress,
                                        USHORT usNDiscrete)
 {
     MB_MASTER_ASSERT(mbm_interface_ptr != NULL);

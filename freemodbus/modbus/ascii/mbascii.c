@@ -200,7 +200,7 @@ eMBASCIISend( UCHAR ucSlaveAddress, const UCHAR * pucFrame, USHORT usLength )
      */
     if( eRcvState == STATE_RX_IDLE )
     {
-         ENTER_CRITICAL_SECTION(  );
+        ENTER_CRITICAL_SECTION(  );
         /* First byte before the Modbus-PDU is the slave address. */
         pucSndBufferCur = ( UCHAR * ) pucFrame - 1;
         usSndBufferCount = 1;
@@ -228,7 +228,6 @@ eMBASCIISend( UCHAR ucSlaveAddress, const UCHAR * pucFrame, USHORT usLength )
     {
         eStatus = MB_EIO;
     }
-    EXIT_CRITICAL_SECTION(  );
     return eStatus;
 }
 
