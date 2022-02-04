@@ -565,6 +565,12 @@ static void vMBTCPPortServerTask(void *pvParameters)
                                                                             pxClientInfo->xSockId, pxClientInfo->pcIpAddr, xErr);
                                         break;
                                 }
+                                
+                                if (xShutdownSemaphore) {
+                                    xSemaphoreGive(xShutdownSemaphore);
+                                    vTaskDelete(NULL);
+                                }
+
                                 // Close client connection
                                 xMBTCPPortCloseConnection(pxClientInfo);
 
@@ -670,6 +676,7 @@ vMBTCPPortDisable( void )
     }
     close(xListenSock);
     xListenSock = -1;
+    vTaskSuspend(xConfig.xMbTcpTaskHandle);
     vMBTCPPortRespQueueDelete(xConfig.xRespQueueHandle);
 }
 
