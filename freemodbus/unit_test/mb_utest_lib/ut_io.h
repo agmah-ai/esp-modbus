@@ -32,7 +32,7 @@
 #define UT_TASK_AFFINITY            0
 #define UT_TASK_PRIORITY            7
 #define UT_TASK_STACK_SIZE          4096
-#define UT_STREAM_BUF_SIZE          (255)
+#define UT_STREAM_BUF_SIZE          255
 #define UT_TASK_EVENT_TOUT_MS       300
 
 #if __has_include("esp_idf_version.h")
@@ -127,6 +127,7 @@ typedef struct pack_data_entry_s {
 } pack_data_entry_t;
 
 typedef struct {
+    int stream_id;
     bool is_opened;
     bool is_writing;
     bool link_type_set;
@@ -151,7 +152,7 @@ typedef struct ut_lister_s {
     stream_t stream_input;
     stream_t stream_output;
     uint32_t packet_index;
-    QueueHandle_t queue_handle;
+    QueueHandle_t notif_queue_handle;
 } ut_lister_t;
 
 esp_err_t ut_init(const char* port_prefix);

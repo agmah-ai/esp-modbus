@@ -56,9 +56,11 @@ if(CONFIG_MB_UTEST_OVERRIDE AND CONFIG_FMB_COMM_MODE_TCP_EN)
 
 list(APPEND WRAP_FUNCTIONS
     esp_netif_init
+    esp_netif_deinit
     esp_wifi_set_ps
     get_example_netif
     example_connect
+    example_disconnect
     init_services
     )
 

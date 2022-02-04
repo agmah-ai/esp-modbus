@@ -36,9 +36,19 @@ extern "C" {
     return frame_send_method(frame_addr, frame_length); \
 } while (0)
 
-//return frame_send_method(frame_addr, frame_length);
-#define MB_WRAPPER_OVERRIDE_SEND(frame_addr, frame_length, frame_send_method) return 0;
-#define MB_WRAPPER_OVERRIDE_GET(frame_addr, frame_length, frame_get_method) return 0;
+#define MB_WRAPPER_OVERRIDE_SEND(frame_addr, frame_length, frame_send_method) do { \
+    ESP_LOGW(__func__, "faddr: %p, flen: %d.", frame_addr, frame_length); \
+    return frame_send_method(frame_addr, frame_length); \
+} while (0)
+
+#define MB_WRAPPER_OVERRIDE_GET(frame_addr, frame_length, frame_get_method) do { \
+    BOOL result = frame_get_method(frame_addr, frame_length); \
+    UT_LOGW(__func__, "faddr: %p, flen: ", *frame_addr, *frame_length); \
+    return result; \
+} while (0)
+
+//    *frame_addr = input_buffer;
+//    *frame_length = input_length;
 
 #if 0
 
@@ -84,7 +94,7 @@ void __wrap_vMBMasterErrorCBRespondTimeout( UCHAR ucDestAddress, const UCHAR* pu
 #endif
 }
 
-extern BOOL __wrap_xMBMasterPortEventGet(eMBMasterEventType* eEvent)
+BOOL __wrap_xMBMasterPortEventGet(eMBMasterEventType* eEvent)
 {
     BOOL res = __real_xMBMasterPortEventGet(eEvent);
     if (res) {

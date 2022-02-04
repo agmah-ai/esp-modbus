@@ -22,7 +22,8 @@ static const char *TAG = "UT_TAG";
 #define UT_FS_BASE_PATH     ("/spiffs")
 
 static ut_lister_t ut_lister = {
-    .stream_input = { .is_opened = false,
+    .stream_input = {   .stream_id = -1,
+                        .is_opened = false,
                         .is_writing = false,
                         .link_type_set = false,
                         .filename = NULL,
@@ -34,7 +35,8 @@ static ut_lister_t ut_lister = {
                         .curr_index = 0,
                         .link_type = PCAP_LINK_TYPE_LOOPBACK
                      },
-    .stream_output = { .is_opened = false,
+    .stream_output = {  .stream_id = -1,
+                        .is_opened = false,
                         .is_writing = false,
                         .link_type_set = false,
                         .filename = NULL,
@@ -47,6 +49,7 @@ static ut_lister_t ut_lister = {
                         .link_type = PCAP_LINK_TYPE_LOOPBACK
                       },
     .ut_task_handle = NULL,
+    .notif_queue_handle = NULL,
     .packet_index = 0
 };
 
@@ -74,20 +77,19 @@ static void IRAM_ATTR ut_timer_cb(void *param)
 {
     //ESP_EARLY_LOGI("TIMER", "callback triggered: %llu", esp_timer_get_time());
     stream_t* pstream = (stream_t*)param;
-    BaseType_t xStatus = xQueueSend(pstream->queue_handle,
+    BaseType_t status = xQueueSend(pstream->queue_handle,
                                     (const void*)&pstream, 
                                     pdMS_TO_TICKS(UT_TASK_EVENT_TOUT_MS));
-    if ((xStatus == pdTRUE) && pstream) {
-        if (pstream && pstream->pcur_item) {
-            ESP_LOGI("TIMER", "Send notification timeout %p, %s[%d].", pstream, pstream->stream_name, pstream->curr_index);
+    if ((status == pdTRUE) && pstream) {
+        if (pstream->pcur_item) {
+            ESP_LOGW("TIMER", "%s[%d], send notification timeout.", pstream->stream_name, (pstream->curr_index - 1));
         }
     } else {
         ESP_LOGE("TIMER", "Timer timeout for stream: [%s].", pstream->stream_name);
-        
     }
 }
 
-static esp_err_t ut_stream_open(stream_t *pcap);
+static esp_err_t ut_stream_open(stream_t *pstream);
 
 static double time_diff(struct timeval x, struct timeval y)
 {
@@ -155,17 +157,17 @@ pack_data_entry_t* ut_find_packet_index(int index, stream_t *pcap, struct timeva
     return NULL;
 }
 
-static esp_err_t ut_read_buffer(stream_t *pcap, pack_data_entry_t* pitem)
+static esp_err_t ut_read_buffer(stream_t *pstream, pack_data_entry_t* pitem)
 {
-    UT_RETURN_ON_FALSE(pcap && pitem, ESP_ERR_INVALID_ARG, TAG, "invalid input pointers.");
+    UT_RETURN_ON_FALSE(pstream && pitem, ESP_ERR_INVALID_ARG, TAG, "invalid input pointers.");
     // If current item is inserted and not exist in the file just return the buffer to its data
     if (pitem->pbuffer && (pitem->file_pos == -1)) {
         return ESP_OK;
     }
     pitem->pbuffer = calloc(1, pitem->capture_length);
     if (pitem->pbuffer) {
-        fseek(pcap->pcap_handle->file, pitem->file_pos, SEEK_SET);
-        size_t real_read = fread(pitem->pbuffer, sizeof(uint8_t), pitem->capture_length, pcap->pcap_handle->file);
+        fseek(pstream->pcap_handle->file, pitem->file_pos, SEEK_SET);
+        size_t real_read = fread(pitem->pbuffer, sizeof(uint8_t), pitem->capture_length, pstream->pcap_handle->file);
         if (real_read != pitem->capture_length) {
             ESP_LOGE(TAG, "read buffer failed.");
             free(pitem->pbuffer);
@@ -175,52 +177,6 @@ static esp_err_t ut_read_buffer(stream_t *pcap, pack_data_entry_t* pitem)
     }
     return ESP_ERR_NO_MEM;
 }
-
-/*
-static esp_err_t ut_mbm_get_answer(int index, void *payload, uint32_t length)
-{
-    struct timeval tv_temp = {0, 0};
-    uint64_t time_diff_us = 0;
-    //gettimeofday(&tv_temp, NULL);
-    uint16_t crc = usMBCRC16((uint8_t*)payload, (length - 2));
-    pack_data_entry_t* pitem = ut_find_packet_index(index, &ut_lister.stream_output, tv_temp, &time_diff_us);
-    if (pitem) {
-        if (crc != pitem->crc) {
-            ESP_LOGE(TAG, "Packet #%d, CRC:%u!=%u", pitem->packet_index, crc, pitem->crc);
-        }
-        UT_RETURN_ON_FALSE((ut_read_buffer(&ut_lister.stream_output, pitem) == ESP_OK),
-                                    ESP_ERR_INVALID_STATE, TAG, "can not read packet data.");
-        ESP_LOG_BUFFER_HEX_LEVEL("OUT", (void*)pitem->pbuffer, pitem->capture_length, ESP_LOG_INFO);
-        tv_temp.tv_sec = pitem->seconds;
-        tv_temp.tv_usec = pitem->microseconds;
-        pitem = ut_find_packet_index(index, &ut_lister.stream_input, tv_temp, &time_diff_us);
-        UT_RETURN_ON_FALSE(pitem, ESP_ERR_INVALID_STATE, TAG, "the input packet not found in the log.");
-        ESP_LOGW(TAG, "Found packet index #%d, time_diff_us: %llu, file_pos:%d", pitem->packet_index, time_diff_us, pitem->file_pos);
-        UT_RETURN_ON_FALSE((ut_read_buffer(&ut_lister.stream_input, pitem) == ESP_OK),
-                            ESP_ERR_INVALID_STATE, TAG, "can not read packet data.");
-        ut_lister.stream_input.pcur_item = pitem;
-        ESP_LOG_BUFFER_HEX_LEVEL("GET", (void*)pitem->pbuffer, pitem->capture_length, ESP_LOG_INFO);
-        UT_RETURN_ON_FALSE(ut_lister.stream_input.timer_handle,
-                            ESP_ERR_INVALID_STATE, TAG, "incorrect timer handler.");
-        UT_RETURN_ON_FALSE((esp_timer_stop(ut_lister.stream_input.timer_handle) == 0),
-                            ESP_ERR_INVALID_STATE, TAG, "can not read packet data.");
-        return ESP_OK;
-    }
-    return ESP_ERR_INVALID_STATE;
-}
-*/
-
-/*
-
-esp_err_t ut_stream_override_packet(void *payload, uint32_t length)
-{
-    // ESP_LOGI(TAG, "Search packet #%d, %p, %u", ut_lister.packet_index, payload, length);
-    // ESP_LOG_BUFFER_HEX_LEVEL("SEND", (void*)payload, (uint16_t)length, ESP_LOG_INFO);
-    // esp_err_t err = ut_mbm_get_answer(ut_lister.packet_index, payload, length);
-    // ut_lister.packet_index++;
-    return ESP_FAIL;
-}
-*/
 
 // Set packet data of packet as defined by parameters
 esp_err_t ut_stream_set_packet_data(direction_t direction, int index, void *payload, uint32_t length)
@@ -286,27 +242,27 @@ esp_err_t ut_stream_insert_packet(direction_t direction, int index, void *payloa
     return ESP_OK;
 }
 
-static esp_err_t ut_stream_open(stream_t *pcap)
+static esp_err_t ut_stream_open(stream_t *pstream)
 {
     esp_err_t ret = ESP_OK;
     // Create file to read/write, binary format
-    FILE *fp = fopen(pcap->filename, "rb+");
-    UT_GOTO_ON_FALSE(fp, ESP_FAIL, err, TAG, "Open file %s failed.", pcap->filename);
+    FILE *fp = fopen(pstream->filename, "rb+");
+    UT_GOTO_ON_FALSE(fp, ESP_FAIL, err, TAG, "Open file %s failed.", pstream->filename);
     pcap_config_t pcap_config = {
         .fp = fp,
         .major_version = PCAP_DEFAULT_VERSION_MAJOR,
         .minor_version = PCAP_DEFAULT_VERSION_MINOR,
         .time_zone = PCAP_DEFAULT_TIME_ZONE_GMT,
     };
-    UT_GOTO_ON_ERROR(pcap_new_session(&pcap_config, &pcap->pcap_handle), err, TAG, "Pcap init failed.");
-    pcap->is_opened = true;
-    ESP_LOGI(TAG, "Open file %s successfully.", pcap->filename);
+    UT_GOTO_ON_ERROR(pcap_new_session(&pcap_config, &pstream->pcap_handle), err, TAG, "PCAP init failed.");
+    pstream->is_opened = true;
+    ESP_LOGI(TAG, "Open file %s successfully.", pstream->filename);
     pcap_file_header_t fh;
-    ret = pcap_read_header(pcap->pcap_handle, &fh);
+    ret = pcap_read_header(pstream->pcap_handle, &fh);
     if (ret) {
           rewind(fp);
-          ret = pcap_write_header(pcap->pcap_handle, PCAP_LINK_TYPE_LOOPBACK);
-          UT_GOTO_ON_ERROR(ret, err, TAG, "Pcap write filed.");
+          ret = pcap_write_header(pstream->pcap_handle, PCAP_LINK_TYPE_LOOPBACK);
+          UT_GOTO_ON_ERROR(ret, err, TAG, "PCAP write filed.");
     }
     return ESP_OK;
 err:
@@ -316,14 +272,14 @@ err:
     return ret;
 }
 
-static esp_err_t ut_stream_close(stream_t *pcap)
+static esp_err_t ut_stream_close(stream_t *pstream)
 {
     esp_err_t ret = ESP_OK;
-    UT_GOTO_ON_FALSE(pcap->is_opened, ESP_ERR_INVALID_STATE, err, TAG, ".pcap file is already closed");
-    UT_GOTO_ON_ERROR(pcap_del_session(pcap->pcap_handle) != ESP_OK, err, TAG, "stop pcap session failed");
-    pcap->is_opened = false;
-    pcap->link_type_set = false;
-    pcap->pcap_handle = NULL;
+    UT_GOTO_ON_FALSE(pstream->is_opened, ESP_ERR_INVALID_STATE, err, TAG, "PCAP file is already closed");
+    UT_GOTO_ON_ERROR(pcap_del_session(pstream->pcap_handle) != ESP_OK, err, TAG, "stop PCAP session failed");
+    pstream->is_opened = false;
+    pstream->link_type_set = false;
+    pstream->pcap_handle = NULL;
 err:
     return ret;
 }
@@ -358,7 +314,7 @@ static void ut_free_packet_list(stream_t* stream) {
     return;
 }
 
-static esp_err_t ut_read_packet_list(stream_t* stream)
+static esp_err_t ut_stream_read_entries(stream_t* stream)
 {
     pcap_file_header_t file_header;
     esp_err_t ret = ESP_OK;
@@ -391,7 +347,7 @@ static esp_err_t ut_read_packet_list(stream_t* stream)
         pack_entry->file_pos = index;
         void* pdata = calloc(1, packet_header.capture_length);
         real_read = fread(pdata, sizeof(uint8_t), packet_header.capture_length, stream->pcap_handle->file);
-        UT_GOTO_ON_FALSE(real_read == packet_header.capture_length, ESP_FAIL, err, TAG, "pcap read payload failed");
+        UT_GOTO_ON_FALSE(real_read == packet_header.capture_length, ESP_FAIL, err, TAG, "PCAP read payload failed");
         // capture the crc of the payload, shall be used to check packet correctness
         pack_entry->crc = usMBCRC16((uint8_t*)pdata, (packet_header.capture_length - 2));
         free(pdata);
@@ -421,13 +377,13 @@ esp_err_t ut_set_timer(stream_t* pstream, uint64_t time_diff)
     return err;
 }
 
-esp_err_t ut_handle_data(stream_t* pstream)
+static esp_err_t ut_handle_stream_data(stream_t* pstream)
 {
     uint64_t time_diff_us = 0;
-    struct timeval tv_temp = {pstream->pcur_item->seconds, pstream->pcur_item->microseconds};
+    struct timeval tv_temp = { pstream->pcur_item->seconds, pstream->pcur_item->microseconds };
     pack_data_entry_t* pitem = ut_find_packet_index(pstream->curr_index, pstream, tv_temp, &time_diff_us);
     
-    UT_RETURN_ON_FALSE(pitem, ESP_ERR_INVALID_STATE, TAG, "the input packet not found in the log.");
+    UT_RETURN_ON_FALSE(pitem, ESP_ERR_INVALID_STATE, TAG, "the input packet [%d] not found in the log.", pstream->curr_index);
     ESP_LOGW(pstream->stream_name, "Packet index #%d, time_diff_us: %llu, file_pos:%d", pitem->packet_index, time_diff_us, pitem->file_pos);
     UT_RETURN_ON_FALSE((ut_read_buffer(pstream, pitem) == ESP_OK),
                         ESP_ERR_INVALID_STATE, TAG, "can not read packet data.");
@@ -449,16 +405,25 @@ esp_err_t ut_handle_data(stream_t* pstream)
 esp_err_t ut_get_notification(direction_t direction, struct timeval tv)
 {
     const direction_t dir = direction;
-    esp_err_t err = ESP_FAIL;
+    esp_err_t err = ESP_OK;
     stream_t* pstream = (direction != DIRECTION_INPUT) ? (direction == DIRECTION_OUTPUT) ?
                                         &ut_lister.stream_output : &ut_lister.stream_input : &ut_lister.stream_input;
-    stream_t* pnotif_stream = NULL;
-    BaseType_t status = xQueueReceive(pstream->queue_handle,
-                                                (void*)&pnotif_stream, 
-                                                pdMS_TO_TICKS(get_time_us(tv) / 1000)); //portMAX_DELAY
-    err = ut_handle_data(pstream);
-    if (status != pdTRUE) {
-        err = ESP_ERR_TIMEOUT;
+    size_t data_len = xStreamBufferBytesAvailable(pstream->stream_buffer_handle);
+    // Do not wait notification if the data available in the buffer
+    if (data_len == 0) {
+        // Send notification into lister task to iterate to next data
+        BaseType_t status = xQueueSend(ut_lister.notif_queue_handle,
+                                (const void*)&pstream, 
+                                pdMS_TO_TICKS(UT_TASK_EVENT_TOUT_MS));
+        // Check data readiness notification from timer
+        stream_t* pnotif_stream = NULL;
+        status |= xQueueReceive(pstream->queue_handle,
+                                (void*)&pnotif_stream, 
+                                pdMS_TO_TICKS(get_time_us(tv) / 1000)); //portMAX_DELAY
+        //err = ut_handle_stream_data(pstream); // handling of the data
+        if (status != pdTRUE) {
+            err = ESP_ERR_TIMEOUT;
+        }
     }
     return err;
 }
@@ -467,15 +432,16 @@ int ut_get_stream_data(direction_t direction, void* pdata, size_t data_length, u
 {
     UT_RETURN_ON_FALSE(pdata, ESP_ERR_INVALID_STATE, TAG,
                         "Invalid buffer pointer to get data.");
-    stream_t stream = (direction != DIRECTION_INPUT) ? (direction == DIRECTION_OUTPUT) ?
-                                        ut_lister.stream_output : ut_lister.stream_input : ut_lister.stream_input;
-
-    size_t length = xStreamBufferReceive(stream.stream_buffer_handle,
-                                            (void*)pdata, data_length, pdMS_TO_TICKS(timeout_ms)); //portMAX_DELAY
-    if (length > 0) {
-        ESP_LOG_BUFFER_HEXDUMP("UT_STREAM", pdata, length, ESP_LOG_WARN);
+    stream_t* pstream = (direction != DIRECTION_INPUT) ? (direction == DIRECTION_OUTPUT) ?
+                                        &ut_lister.stream_output : &ut_lister.stream_input : &ut_lister.stream_input;
+    size_t data_len = xStreamBufferReceive(pstream->stream_buffer_handle,
+                                            (void*)pdata, data_length, portMAX_DELAY); //portMAX_DELAY pdMS_TO_TICKS(timeout_ms)
+    if (data_len > 0) {
+        ESP_LOG_BUFFER_HEXDUMP("GET_DATA", pdata, data_len, ESP_LOG_WARN);
+    } else {
+        ESP_LOGE(TAG, "error get data from %s stream.", pstream->stream_name);
     }
-    return length;
+    return data_len;
 }
 
 static void ut_lister_task(void *parg)
@@ -486,81 +452,75 @@ static void ut_lister_task(void *parg)
     
     pack_data_entry_t* pinp_pitem = ut_find_packet_index(0, &ut_lister.stream_input, tv_temp, &time_diff_inp_us);
     pack_data_entry_t* pout_pitem = ut_find_packet_index(0, &ut_lister.stream_output, tv_temp, &time_diff_out_us);
-    if (time_diff_inp_us <= time_diff_out_us) {
-        ut_set_timer(&ut_lister.stream_input, 0);
-        ut_set_timer(&ut_lister.stream_output, (time_diff_out_us - time_diff_inp_us));
-    } else {
-        ut_set_timer(&ut_lister.stream_output, 0);
-        ut_set_timer(&ut_lister.stream_input, (time_diff_inp_us - time_diff_out_us));
-    }
+    // tv_temp.tv_sec = pinp_pitem->seconds;
+    // tv_temp.tv_sec = pinp_pitem->microseconds;
+    // ESP_LOGW(TAG, "Stream input time: %llu ms , diff: %llu", get_time_us(tv_temp)/1000, time_diff_inp_us);
+    // tv_temp.tv_sec = pout_pitem->seconds;
+    // tv_temp.tv_sec = pout_pitem->microseconds;
+    // ESP_LOGW(TAG, "Stream output time: %llu ms, diff: %llu", get_time_us(tv_temp)/1000, time_diff_out_us);
+
     ESP_LOGW("INIT", "Initialization of streams is done.");
     ut_lister.stream_input.pcur_item = pinp_pitem;
     ut_lister.stream_output.pcur_item = pout_pitem;
-    /*
-    pack_data_entry_t* pitem = (time_diff_out_us <= time_diff_inp_us) ? out_pitem : inp_pitem;
-    struct timeval start_tm = { .tv_sec = pitem->seconds, .tv_usec = 0 };
-    ESP_LOGI(TAG, "Time to set: %llu", get_time_us(start_tm));
-    ESP_LOGI(TAG, "Time actual: %llu", get_time_us(tv_temp));
-    //settimeofday(&start_tm, NULL);
-    gettimeofday(&tv_temp, NULL);
-    ESP_LOGI(TAG, "Time changed: %llu", get_time_us(tv_temp));
-    //esp_sync_counters_rtc_and_frc();
-    */
+
     while(1)
     {
-        // stream_t* pstream = NULL;
-        // BaseType_t status = xQueueReceive(ut_lister.ut_queue_handle, 
-        //                                         (void*)&pstream, 
-        //                                         pdMS_TO_TICKS(UT_TASK_EVENT_TOUT_MS)); //portMAX_DELAY
-        // if (status != pdTRUE) {
-        //     // Timeout reading getting events
-        //     ESP_LOGE(TAG, "UT Event read timeout.");
-        // } else {
-        //     // Got en event from port task waiting for data
-        //     if (pstream) { 
-        //         // Ready to read data
-        //         ESP_LOGW("UT_TASK", "Stream %s, got timer event.", pstream->stream_name); //, pstream->stream_name
-        //         if (pstream && pstream->pcur_item) {
-        //             ESP_EARLY_LOGI("UT_TASK", "Send buf:%p, len:%d", pstream->pcur_item->pbuffer, pstream->pcur_item->capture_length);
-        //             xStreamBufferSend(pstream->stream_buffer_handle, 
-        //                                 (void*)pstream->pcur_item->pbuffer, 
-        //                                 (size_t)pstream->pcur_item->capture_length, pdMS_TO_TICKS(UT_TASK_EVENT_TOUT_MS));
-        //             ESP_LOG_BUFFER_HEXDUMP("UT_TASK", pstream->pcur_item->pbuffer, pstream->pcur_item->capture_length, ESP_LOG_WARN);
-        //             // Todo: add handling of timeout
-        //         }
-        //     }
-        // }
+        stream_t* pstream = NULL;
+        BaseType_t status = xQueueReceive(ut_lister.notif_queue_handle, 
+                                                (void*)&pstream, 
+                                                portMAX_DELAY); //pdMS_TO_TICKS(UT_TASK_EVENT_TOUT_MS)
+        if (status != pdTRUE) {
+            // Timeout reading getting events
+            ESP_LOGE(TAG, "UT Event read timeout.");
+        } else {
+            // Got en event from port task waiting for data
+            if (pstream && pstream->pcur_item) { 
+                // Ready to read data
+                ESP_LOGW("UT_TASK", "Stream %s, handle event.", pstream->stream_name);
+                if (pstream->pcur_item) {
+                    ESP_LOGW("UT_TASK", "Handle stream (%s), buf:%p, len:%d", pstream->stream_name, pstream->pcur_item->pbuffer, pstream->pcur_item->capture_length);
+                    // Handle stream data on event
+                    esp_err_t err = ut_handle_stream_data(pstream);
+                    if (err) {
+                        ESP_LOGW(TAG, "UT Lister is suspended.");
+                    }
+                }
+            }
+        }
         vTaskDelay(1);
     }
     vTaskDelete(NULL);
 }
 
-static esp_err_t ut_init_descriptors(const char* port_prefix)
+static int ut_stream_create(const char* port_prefix, const char* stream_name)
 {
     esp_err_t ret = ESP_OK;
 
-    if (asprintf(&ut_lister.stream_input.filename, "/spiffs/%s_input.pcap", port_prefix) == -1) {
+    stream_t* pstream = calloc(1, sizeof(stream_t));
+
+    if (asprintf(&ut_lister.stream_input.filename, "/spiffs/%s_%s.pcap", port_prefix, stream_name) == -1) {
         abort();
     }
 
-    if (asprintf(&ut_lister.stream_output.filename, "/spiffs/%s_output.pcap", port_prefix) == -1) {
-        abort();
-    }
-    UT_GOTO_ON_ERROR(ut_stream_open(&ut_lister.stream_input) != ESP_OK, err, TAG, "open input pcap filed.");
-    UT_GOTO_ON_ERROR(ut_stream_open(&ut_lister.stream_output) != ESP_OK, err, TAG, "open output pcap filed.");
+    UT_GOTO_ON_ERROR(ut_stream_open(&ut_lister.stream_input) != ESP_OK, err, TAG, "Open input PCAP filed.");
+    UT_GOTO_ON_ERROR(ut_stream_open(&ut_lister.stream_output) != ESP_OK, err, TAG, "Open output PCAP filed.");
 #if CONFIG_MB_UTEST_LOG
+    // Initiate stream file handlers for writing new data
     ret = pcap_write_header(ut_lister.stream_input.pcap_handle, PCAP_LINK_TYPE_LOOPBACK);
     UT_GOTO_ON_ERROR(ret, err, TAG, "Pcap init input header failed.");
     ret = pcap_write_header(ut_lister.stream_output.pcap_handle, PCAP_LINK_TYPE_LOOPBACK);
     UT_GOTO_ON_ERROR(ret, err, TAG, "Pcap init output header failed.");
 #elif CONFIG_MB_UTEST_OVERRIDE
+    // Start stream to initial position of stream data
     rewind(ut_lister.stream_output.pcap_handle->file);
     rewind(ut_lister.stream_input.pcap_handle->file);
+    // Initialize the stream data lists
     LIST_INIT(&ut_lister.stream_output.pack_entries);
     LIST_INIT(&ut_lister.stream_input.pack_entries);
-    UT_GOTO_ON_ERROR(ut_read_packet_list(&ut_lister.stream_output),
+    // Read data from stream into data list
+    UT_GOTO_ON_ERROR(ut_stream_read_entries(&ut_lister.stream_output),
                         err, TAG, "%s pcap read packet list failed.", ut_lister.stream_output.filename);
-    UT_GOTO_ON_ERROR(ut_read_packet_list(&ut_lister.stream_input),
+    UT_GOTO_ON_ERROR(ut_stream_read_entries(&ut_lister.stream_input),
                         err, TAG, "%s pcap read packet list failed.", ut_lister.stream_output.filename);
     esp_timer_create_args_t timer_conf = {
         .callback = ut_timer_cb,
@@ -579,7 +539,88 @@ static esp_err_t ut_init_descriptors(const char* port_prefix)
     // Create r/w event queue
     ut_lister.stream_output.queue_handle = xQueueCreate(2, sizeof(stream_t*));
     ut_lister.stream_input.queue_handle = xQueueCreate(2, sizeof(stream_t*));
-    UT_RETURN_ON_FALSE((ut_lister.stream_output.queue_handle && ut_lister.stream_input.queue_handle), ESP_ERR_INVALID_STATE,
+    ut_lister.notif_queue_handle = xQueueCreate(4, sizeof(stream_t*));
+    UT_RETURN_ON_FALSE((ut_lister.stream_output.queue_handle && ut_lister.stream_input.queue_handle && ut_lister.notif_queue_handle), 
+                                    ESP_ERR_INVALID_STATE,
+                                    TAG, "Could not create lister queue.");
+    // Create stream buffers (one per IO stream).
+    // These buffers will be used to transfer data to/from listener/sender
+    ut_lister.stream_input.stream_buffer_handle = xStreamBufferCreate(UT_STREAM_BUF_SIZE, 4);
+    ut_lister.stream_output.stream_buffer_handle = xStreamBufferCreate(UT_STREAM_BUF_SIZE, 4);
+    UT_RETURN_ON_FALSE((ut_lister.stream_output.stream_buffer_handle && ut_lister.stream_input.stream_buffer_handle), ESP_ERR_INVALID_STATE,
+                                    TAG, "Could not create stream buffer.");
+    // Create task for packet processing
+    BaseType_t err = xTaskCreatePinnedToCore(ut_lister_task,
+                                    "ut_lister",
+                                    UT_TASK_STACK_SIZE,
+                                    NULL,
+                                    UT_TASK_PRIORITY,
+                                    &ut_lister.ut_task_handle,
+                                    UT_TASK_AFFINITY);
+    if (err != pdTRUE)
+    {
+        ESP_LOGE(TAG, "Could not create packet lister task");
+        vTaskDelete(ut_lister.ut_task_handle);
+    }
+#endif
+
+err:
+    return ret;
+}
+
+
+
+static esp_err_t ut_init_descriptors(const char* port_prefix)
+{
+    esp_err_t ret = ESP_OK;
+
+    if (asprintf(&ut_lister.stream_input.filename, "/spiffs/%s_input.pcap", port_prefix) == -1) {
+        abort();
+    }
+
+    if (asprintf(&ut_lister.stream_output.filename, "/spiffs/%s_output.pcap", port_prefix) == -1) {
+        abort();
+    }
+    UT_GOTO_ON_ERROR(ut_stream_open(&ut_lister.stream_input) != ESP_OK, err, TAG, "Open input PCAP filed.");
+    UT_GOTO_ON_ERROR(ut_stream_open(&ut_lister.stream_output) != ESP_OK, err, TAG, "Open output PCAP filed.");
+#if CONFIG_MB_UTEST_LOG
+    // Initiate stream file handlers for writing new data
+    ret = pcap_write_header(ut_lister.stream_input.pcap_handle, PCAP_LINK_TYPE_LOOPBACK);
+    UT_GOTO_ON_ERROR(ret, err, TAG, "Pcap init input header failed.");
+    ret = pcap_write_header(ut_lister.stream_output.pcap_handle, PCAP_LINK_TYPE_LOOPBACK);
+    UT_GOTO_ON_ERROR(ret, err, TAG, "Pcap init output header failed.");
+#elif CONFIG_MB_UTEST_OVERRIDE
+    // Start stream to initial position of stream data
+    rewind(ut_lister.stream_output.pcap_handle->file);
+    rewind(ut_lister.stream_input.pcap_handle->file);
+    // Initialize the stream data lists
+    LIST_INIT(&ut_lister.stream_output.pack_entries);
+    LIST_INIT(&ut_lister.stream_input.pack_entries);
+    // Read data from stream into data list
+    UT_GOTO_ON_ERROR(ut_stream_read_entries(&ut_lister.stream_output),
+                        err, TAG, "%s pcap read packet list failed.", ut_lister.stream_output.filename);
+    UT_GOTO_ON_ERROR(ut_stream_read_entries(&ut_lister.stream_input),
+                        err, TAG, "%s pcap read packet list failed.", ut_lister.stream_output.filename);
+    esp_timer_create_args_t timer_conf = {
+        .callback = ut_timer_cb,
+        .arg = &ut_lister.stream_input,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "ut_tm_inp_poll"
+    };
+    // Create Modbus timer handlers for streams
+    UT_GOTO_ON_ERROR(esp_timer_create(&timer_conf, &ut_lister.stream_input.timer_handle),
+                            err, TAG, "create input stream timer failed.");
+    timer_conf.callback = ut_timer_cb;
+    timer_conf.arg = &ut_lister.stream_output;
+    timer_conf.name = "ut_tm_out_poll";
+    UT_GOTO_ON_ERROR(esp_timer_create(&timer_conf, &ut_lister.stream_output.timer_handle),
+                            err, TAG, "create output stream timer failed.");
+    // Create r/w event queue
+    ut_lister.stream_output.queue_handle = xQueueCreate(2, sizeof(stream_t*));
+    ut_lister.stream_input.queue_handle = xQueueCreate(2, sizeof(stream_t*));
+    ut_lister.notif_queue_handle = xQueueCreate(4, sizeof(stream_t*));
+    UT_RETURN_ON_FALSE((ut_lister.stream_output.queue_handle && ut_lister.stream_input.queue_handle && ut_lister.notif_queue_handle), 
+                                    ESP_ERR_INVALID_STATE,
                                     TAG, "Could not create lister queue.");
     // Create stream buffers (one per IO stream).
     // These buffers will be used to transfer data to/from listener/sender

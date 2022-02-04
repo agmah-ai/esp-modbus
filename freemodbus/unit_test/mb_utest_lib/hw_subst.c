@@ -23,6 +23,13 @@ esp_err_t __wrap_esp_netif_init(void)
     return pnetif ? ESP_OK : ESP_ERR_INVALID_STATE;
 }
 
+esp_err_t __wrap_esp_netif_deinit(void) 
+{
+    ESP_LOGW("UT", "Func wrapper called: %s.", __func__);
+    esp_netif_destroy(pnetif);
+    return ESP_ERR_NOT_SUPPORTED;
+}
+
 esp_err_t __wrap_esp_wifi_set_ps(wifi_ps_type_t type)
 {
     ESP_LOGW("UT", "Func wrapper called: %s.", __func__);
@@ -30,6 +37,12 @@ esp_err_t __wrap_esp_wifi_set_ps(wifi_ps_type_t type)
 }
 
 esp_err_t __wrap_example_connect(void)
+{
+    ESP_LOGW("UT", "Func wrapper called: %s.", __func__);
+    return ESP_OK;
+}
+
+esp_err_t __wrap_example_disconnect(void)
 {
     ESP_LOGW("UT", "Func wrapper called: %s.", __func__);
     return ESP_OK;
@@ -98,7 +111,7 @@ int __wrap_lwip_connect(int s,const struct sockaddr *name,socklen_t namelen)
 ssize_t __wrap_lwip_recv(int s, void* mem, size_t len, int flags)
 {
     ESP_LOGW("UT", "%s, sock: %d, ptr:%p, len:%d", __func__, s, mem, len);   
-    return ut_get_stream_data(DIRECTION_INPUT, mem, len, 0);
+    return ut_get_stream_data(DIRECTION_INPUT, mem, len, 100);
 }
 
 ssize_t __wrap_lwip_send(int s, const void *dataptr, size_t size, int flags)
@@ -106,7 +119,7 @@ ssize_t __wrap_lwip_send(int s, const void *dataptr, size_t size, int flags)
     ESP_LOGW("UT", "Func wrapper called: %s.", __func__);
     ESP_LOG_BUFFER_HEXDUMP("UT_SEND_SRC", dataptr, size, ESP_LOG_WARN);
     void *temp_data = (void *)dataptr;
-    int length = ut_get_stream_data(DIRECTION_OUTPUT, temp_data, size, 1);
+    int length = ut_get_stream_data(DIRECTION_OUTPUT, temp_data, size, 100);
     return length;
 }
 
@@ -122,8 +135,6 @@ int __wrap_select(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *except
         if (err == ESP_OK) {
             FD_SET(curr_socket, readset);
             ESP_LOGW("UT_READ", " %s.", __func__);
-        } else {
-            ESP_LOGE("UT_READ", "%s read error.", __func__);
         }
     }
     if (writeset) {
@@ -181,10 +192,26 @@ int __wrap_lwip_accept(int s, struct sockaddr *addr, socklen_t *addrlen)
     if (!addr || !addrlen) {
         return -1;
     }
-    ((struct sockaddr_in *)addr)->sin_addr.s_addr = inet_addr("127.0.0.1");
+    struct sockaddr_in* psaddr = ((struct sockaddr_in *)(addr));
+    psaddr->sin_addr.s_addr = inet_addr("127.0.0.1");
+    psaddr->sin_addr.s_addr |= (uint32_t)(s & 0x03);
     
     addr->sa_family = PF_INET;
     addr->sa_len = *addrlen;
 
     return curr_socket;
+}
+
+int __wrap_lwip_shutdown(int s, int how)
+{
+    ESP_LOGW("UT", "Func wrapper called: %s.", __func__);
+    curr_socket = 55;
+    return 0;
+}
+
+int __wrap_lwip_close(int s)
+{
+    ESP_LOGW("UT", "Func wrapper called: %s.", __func__);
+    curr_socket = 55;
+    return 0;    
 }
