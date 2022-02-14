@@ -128,18 +128,25 @@ BOOL xMBMasterPortSerialTxPoll(void)
     return FALSE;
 }
 
+BOOL xMBMasterPortSerialWaitEvent(uart_event_t* pxEvent, ULONG xTimeout)
+{
+    BOOL xResult = (BaseType_t)xQueueReceive(xMbUartQueue, (void*)pxEvent, (TickType_t) xTimeout);
+    ESP_LOGD(__func__, "Event: %d ", pxEvent->type);
+    return xResult;
+}
+
 // UART receive event task
 static void vUartTask(void* pvParameters)
 {
     uart_event_t xEvent;
     USHORT usResult = 0;
     for(;;) {
-        if (xQueueReceive(xMbUartQueue, (void*)&xEvent, portMAX_DELAY) == pdTRUE) {
-            ESP_LOGD(TAG, "MB_uart[%d] event:", ucUartNumber);
+        if (xMBMasterPortSerialWaitEvent(&xEvent, portMAX_DELAY)) {
+            ESP_LOGW(TAG, "MB_uart[%d] event:", ucUartNumber);
             switch(xEvent.type) {
                 //Event of UART receiving data
                 case UART_DATA:
-                    ESP_LOGD(TAG,"Data event, len: %d.", xEvent.size);
+                    ESP_LOGW(TAG,"Data event, len: %d.", xEvent.size);
                     // This flag set in the event means that no more
                     // data received during configured timeout and UART TOUT feature is triggered
                     if (xEvent.timeout_flag) {

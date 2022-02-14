@@ -190,19 +190,19 @@ void app_main(void)
     write_modbus_parameter(CID_DEV_REG0, &register_data);
     register_data = 0x5678;
     write_modbus_parameter(CID_DEV_REG1, &register_data);
-
-    ut_print_list(DIRECTION_INPUT);
-    ut_print_list(DIRECTION_OUTPUT);
+/*
+    ut_stream_print_list(STREAM_ID_INPUT);
+    ut_stream_print_list(STREAM_ID_OUTPUT);
 
     uint8_t out_pack[] = {0x01, 0x10, 0x00, 0x02, 0x00, 0x01, 0x02, 0x12, 0x34, 0xaa, 0xc5};
     uint8_t inp_pack[] = {0x01, 0x10, 0x00, 0x02, 0x00, 0x01, 0xa0, 0x09};
 #define INSERT_PACK_INDEX (2)
     // Insert packet into quiue after index
-    ut_stream_set_packet_data(DIRECTION_INPUT, INSERT_PACK_INDEX, inp_pack, sizeof(inp_pack));
-    ut_stream_set_packet_data(DIRECTION_OUTPUT, INSERT_PACK_INDEX, out_pack, sizeof(out_pack));
+    ut_stream_set_packet_data(STREAM_ID_INPUT, INSERT_PACK_INDEX, inp_pack, sizeof(inp_pack));
+    ut_stream_set_packet_data(STREAM_ID_OUTPUT, INSERT_PACK_INDEX, out_pack, sizeof(out_pack));
 
-    ut_print_list(DIRECTION_INPUT);
-    ut_print_list(DIRECTION_OUTPUT);
-
+    ut_stream_print_list(STREAM_ID_INPUT);
+    ut_stream_print_list(STREAM_ID_OUTPUT);
+*/
     master_read_write_func(NULL);
 }

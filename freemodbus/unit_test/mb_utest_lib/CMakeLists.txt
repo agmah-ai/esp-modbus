@@ -26,6 +26,7 @@ target_link_libraries(mb_ut_lib PUBLIC ${spiffs_lib})
 
 set(WRAP_FUNCTIONS
     xMBMasterPortSerialInit
+    xMBMasterPortSerialInputEvent
     xMBMasterPortSerialPutByte
     xMBMasterPortSerialGetByte
     xMBMasterSerialPortGetResponse
@@ -45,11 +46,11 @@ set(WRAP_FUNCTIONS
     xMBTCPPortSendResponse
     xMBTCPPortGetRequest
     vMBTCPPortClose
-    xMBMasterPortEventGet
-    vMBMasterErrorCBRespondTimeout
-    usMBMasterPortSerialRxPoll
-    eMBMasterWaitRequestFinish
-    xMBTCPPortMasterConnect
+    #xMBMasterPortEventGet
+    #vMBMasterErrorCBRespondTimeout
+    #usMBMasterPortSerialRxPoll
+    #eMBMasterWaitRequestFinish
+    #xMBTCPPortMasterConnect
     )
 
 if(CONFIG_MB_UTEST_OVERRIDE AND CONFIG_FMB_COMM_MODE_TCP_EN)
@@ -78,8 +79,9 @@ endif()
     # lwip_getsockopt
 
 foreach(wrap ${WRAP_FUNCTIONS})
+    target_link_libraries(mb_ut_lib PUBLIC "-Wl,--undefined=${wrap}")
     target_link_libraries(mb_ut_lib PUBLIC "-Wl,--wrap=${wrap}")
 endforeach()
 
 # allow multiple symbol definitions
-target_link_libraries(mb_ut_lib PUBLIC "-Wl,-zmuldefs" "-no-pie")
+target_link_libraries(mb_ut_lib PUBLIC "-Wl,--allow-multiple-definition") #--allow-multiple-definition -z,multidefs

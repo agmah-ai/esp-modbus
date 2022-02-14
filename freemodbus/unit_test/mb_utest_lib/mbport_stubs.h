@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
  
+#pragma once
+
 #include <sdkconfig.h>
 #include "esp_log.h"
 #include "port.h"
@@ -11,76 +13,49 @@
 #include "mbcrc.h"
 #include "mb_m.h"
 #include "esp_modbus_master.h"
-#include "port_tcp_master.h"            // required for modbus tcp port types (the header exposed by cmake file)
-#include "port_tcp_slave.h"            // required for modbus tcp port types (the header exposed by cmake file)
-
-#include "lwip/err.h"                   // needs just for exposing of the TCP stack port functions
-#include "lwip/netdb.h"                 // for getaddrinfo
-#include "lwip/sockets.h"               // for socket
-#include "esp_wifi_types.h"             // for esp_wifi_set_ps()
-#include "esp_netif.h"                  // for esp_netif_t
 
 #if CONFIG_MB_UTEST
 
-#if CONFIG_MB_UTEST_DEBUG
-#define TEST_LOG(tag, str, ...) do { \
-    ESP_EARLY_LOGI(tag, str, __VA_ARGS__); \
-} while(0)
-#else
-    #define TEST_LOG(tag, str, ...)
-#endif
+#define MB_WRAPPER_LOG_GET(frame_addr, frame_length, frame_get_method) do { \
+    UT_LOGW("UT", "Func wrapper called: %s.", __func__); \
+    BOOL ret = frame_get_method(frame_addr, frame_length); \
+    UT_RETURN_ON_FALSE((*frame_addr && frame_length), FALSE, TAG, "wrong get request pointers."); \
+    esp_err_t err = ut_stream_capture_packet(inp_stream_id, (uint8_t*)*frame_addr, (uint32_t)*frame_length, 0); \
+    UT_RETURN_ON_FALSE(err == ESP_OK, FALSE, TAG, "fail to override packet."); \
+    return ret; \
+} while (0)
+
+#define MB_WRAPPER_LOG_SEND(frame_addr, frame_length, frame_send_method) do { \
+    UT_LOGW("UT", "Func wrapper called: %s.", __func__); \
+    esp_err_t err = ut_stream_capture_packet(out_stream_id, (uint8_t*)frame_addr, (uint32_t)frame_length, 0); \
+    UT_RETURN_ON_FALSE((err == ESP_OK), FALSE, TAG, "fail to capture packet."); \
+    return frame_send_method(frame_addr, frame_length); \
+} while (0)
+
+#define MB_WRAPPER_OVERRIDE_SEND(frame_addr, frame_length, frame_send_method) do { \
+    UT_LOGW(__func__, "faddr: %p, flen: %d.", frame_addr, frame_length); \
+    return frame_send_method(frame_addr, frame_length); \
+} while (0)
+
+#define MB_WRAPPER_OVERRIDE_GET(frame_addr, frame_length, frame_get_method) do { \
+    BOOL result = frame_get_method(frame_addr, frame_length); \
+    UT_LOGW(__func__, "faddr: %p, flen: ", *frame_addr, *frame_length); \
+    return result; \
+} while (0)
+
+extern USHORT usMBCRC16( UCHAR * pucFrame, USHORT usLen );
 
 extern USHORT __real_usMBMasterPortSerialRxPoll(size_t xEventSize);
 
 extern void __real_vMBMasterErrorCBRespondTimeout(UCHAR ucDestAddress, const UCHAR* pucPDUData, USHORT ucPDULength );
 
-extern BOOL __real_xMBMasterTCPPortInit(USHORT usTCPPort);
-
-extern BOOL __real_xMBMasterTCPPortSendRequest(UCHAR * pucMBTCPFrame, USHORT usTCPLength);
-
-extern BOOL __real_xMBMasterTCPPortGetResponse(UCHAR ** ppucMBTCPFrame, USHORT * usTCPLength) ;
-
-extern void __real_vMBMasterTCPPortClose(void);
-
-extern BOOL __real_xMBPortSerialInit(UCHAR ucPORT, ULONG ulBaudRate, UCHAR ucDataBits, eMBParity eParity);
-                       
-extern BOOL __real_xMBPortSerialPutByte(CHAR ucByte);
-
-extern BOOL __real_xMBPortSerialGetByte(CHAR* pucByte);
-
-extern BOOL __real_xMBSerialPortGetRequest(UCHAR **ppucMBSerialFrame, USHORT * usSerialLength);
-
-extern BOOL __real_xMBSerialPortSendResponse(UCHAR *pucMBSerialFrame, USHORT usSerialLength);
-
-extern void __real_vMBPortSerialClose(void);
-
-extern BOOL __real_xMBMasterPortSerialInit(UCHAR ucPORT, ULONG ulBaudRate, UCHAR ucDataBits, eMBParity eParity);
-
-extern BOOL __real_xMBMasterPortSerialPutByte(CHAR ucByte);
-
-extern BOOL __real_xMBMasterPortSerialGetByte(CHAR* pucByte);
-
-extern BOOL __real_xMBMasterSerialPortGetResponse(UCHAR **ppucMBSerialFrame, USHORT * usSerialLength);
-
-extern BOOL __real_xMBMasterSerialPortSendRequest(UCHAR *pucMBSerialFrame, USHORT usSerialLength);
-
-extern void __real_vMBMasterPortSerialClose(void);
-
-extern BOOL __real_xMBTCPPortInit(USHORT usTCPPort);
-
-extern BOOL __real_xMBTCPPortSendResponse(UCHAR * pucMBTCPFrame, USHORT usTCPLength);
-
-extern BOOL __real_xMBTCPPortGetRequest(UCHAR ** ppucMBTCPFrame, USHORT * usTCPLength);
-
-extern void __real_vMBTCPPortClose(void);
-
 extern BOOL __real_xMBMasterPortEventGet(eMBMasterEventType* eEvent);
+
+extern esp_err_t __wrap_init_services(mb_tcp_addr_type_t ip_addr_type);
 
 extern eMBMasterReqErrCode __real_eMBMasterWaitRequestFinish( void );
 
-extern err_t __real_xMBTCPPortMasterConnect(MbSlaveInfo_t* pxInfo);
-
-extern esp_err_t __wrap_init_services(mb_tcp_addr_type_t ip_addr_type);
+BOOL __wrap_xMBMasterPortSerialInputEvent(uart_event_t* pxEvent, ULONG xTimeout);
 
 //extern esp_err_t __real_mbc_master_send_request(mb_param_request_t* request, void* data_ptr);
 

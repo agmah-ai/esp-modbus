@@ -69,10 +69,11 @@ if(CONFIG_MB_UTEST)
         get_filename_component(src_wo_ext ${src} NAME_WLE)
         message(STATUS "file without extention: ${src_wo_ext}")
         if(EXISTS "${dep_inj_dir}/src/${src_wo_ext}_test.c")
+            message(STATUS "file without extention: ${src_wo_ext}")
             list(REMOVE_ITEM srcs ${src})
             list(APPEND srcs "${dep_inj_dir}/src/${src_wo_ext}_test.c")
-            #set_property(SOURCE ${src} APPEND_STRING PROPERTY COMPILE_FLAGS
-            #    " -include ${dep_inj_dir}/include/${src_wo_ext}_test.h -include ${dep_inj_dir}/include/dep_inject.h")
+            set_property(SOURCE ${src} APPEND_STRING PROPERTY COMPILE_FLAGS
+                " -include ${dep_inj_dir}/include/${src_wo_ext}_test.h -include ${dep_inj_dir}/include/dep_inject.h")
             #get_property(SOURCE ${src} PROPERTY DIRECTORY)
         endif()
     endforeach()

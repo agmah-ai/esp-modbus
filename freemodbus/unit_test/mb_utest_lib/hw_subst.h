@@ -15,8 +15,10 @@
 #include "esp_modbus_common.h"          // for common modbus defines
 #include "ut_io.h"
 
+#include "port.h"                       // for modbus port types
+
 // Example network common wrappers
-esp_netif_t *__wrap_get_example_netif(void);
+esp_netif_t* __wrap_get_example_netif(void);
 esp_err_t __wrap_esp_netif_init(void);
 esp_err_t __wrap_esp_wifi_set_ps(wifi_ps_type_t type);
 esp_err_t __wrap_example_connect(void);
@@ -44,3 +46,7 @@ int __wrap_lwip_setsockopt(int s, int level, int optname, const void *optval, so
 int __wrap_lwip_accept(int s, struct sockaddr *addr, socklen_t *addrlen);
 int __wrap_lwip_shutdown(int s, int how);
 int __wrap_lwip_close(int s);
+extern int lwip_connect(int s,const struct sockaddr *name,socklen_t namelen);
+esp_err_t __wrap_uart_wait_tx_done(uart_port_t uart_num, TickType_t ticks_to_wait);
+int __wrap_uart_read_bytes(uart_port_t uart_num, void *buf, uint32_t length, TickType_t ticks_to_wait);
+BOOL __wrap_xMBMasterPortSerialWaitEvent(uart_event_t* pxEvent, ULONG xTimeout);

@@ -29,35 +29,47 @@
 #include "sdkconfig.h"
 #include "pcap.h"
 
-#define UT_TASK_AFFINITY            0
-#define UT_TASK_PRIORITY            7
-#define UT_TASK_STACK_SIZE          4096
+// The defines below are used to initialize the UT framework and its active objects
+#define UT_TASK_AFFINITY            1
+#define UT_TASK_PRIORITY            8
 #define UT_STREAM_BUF_SIZE          255
 #define UT_TASK_EVENT_TOUT_MS       300
+#define UT_TASK_STACK_SIZE          4096
+#define UT_TIME_DIFF_MAX_US         2000000
+#define UT_TIME_MAX_US              (INT_MAX)
+#define UT_MAX_FILES                5
+#define UT_FS_BASE_PATH             ("/spiffs")
 
 #if __has_include("esp_idf_version.h")
 #include "esp_idf_version.h"
 #endif
 
 #define LOG_COLOR_H LOG_COLOR(LOG_COLOR_BLUE)
+#define LOG_COLOR_T LOG_COLOR(LOG_COLOR_CYAN)
 
-#define UT_LOG_FORMAT(letter, format)  DRAM_STR(LOG_COLOR_ ## letter #letter "(%u):%s " format LOG_RESET_COLOR "\n")
+#define UT_LOG_FORMAT(letter, format)  DRAM_STR(LOG_COLOR_ ## letter #letter " (%u) %s: " format LOG_RESET_COLOR "\n")
 
 #if CONFIG_MB_UTEST_DEBUG
 
+// #define UT_LOG(tag, format, log_level, log_tag_letter, ...) do { 
+//             ets_printf(UT_LOG_FORMAT(log_tag_letter, format), esp_log_early_timestamp(), tag, ##__VA_ARGS__); 
+// } while(0)
+
 #define UT_LOG(tag, format, log_level, log_tag_letter, ...) do { \
-            ets_printf(UT_LOG_FORMAT(log_tag_letter, format), esp_log_early_timestamp(), tag, ##__VA_ARGS__); \
+            esp_rom_printf(LOG_FORMAT(log_tag_letter, format), esp_log_timestamp(), tag, ##__VA_ARGS__); \
 } while(0)
+
 #else
 #define UT_LOG(tag, format, log_level, log_tag_letter, ...)
 #endif
 
 #define UT_LOGE( tag, format, ... ) UT_LOG(tag, format, ESP_LOG_ERROR, E, ##__VA_ARGS__)
-#define UT_LOGW( tag, format, ... ) UT_LOG(tag, format, ESP_LOG_WARN, W, ##__VA_ARGS__)
+#define UT_LOGW( tag, format, ... ) UT_LOG(tag, format, ESP_LOG_WARN, T, ##__VA_ARGS__)
 #define UT_LOGI( tag, format, ... ) UT_LOG(tag, format, ESP_LOG_INFO, H, ##__VA_ARGS__)
 #define UT_LOGD( tag, format, ... ) UT_LOG(tag, format, ESP_LOG_DEBUG, D, ##__VA_ARGS__)
 #define UT_LOGV( tag, format, ... ) UT_LOG(tag, format, ESP_LOG_VERBOSE, V, ##__VA_ARGS__)
 #define UT_LOGH( tag, format, ... ) UT_LOG(tag, format, ESP_LOG_INFO, H, ##__VA_ARGS__)
+#define UT_LOGT( tag, format, ... ) UT_LOG(tag, format, ESP_LOG_INFO, T, ##__VA_ARGS__)
 
 #if __has_include("esp_check.h")
 
@@ -108,12 +120,16 @@
 extern "C" {
 #endif
 
-typedef enum {
-    DIRECTION_NOT_SET,
-    DIRECTION_INPUT,
-    DIRECTION_OUTPUT
-} direction_t;
 
+// Enumerator for default stream IDs
+typedef enum {
+    STREAM_ID_INPUT = 0,
+    STREAM_ID_OUTPUT,
+    STREAM_ID_EVENT,
+    STREAM_ID_INVALID = -1
+} default_stream_id_t;
+
+// This structure describes event data as the packet list associated with stream ID 
 typedef struct pack_data_entry_s {
     int file_pos;
     uint32_t packet_index;
@@ -126,6 +142,7 @@ typedef struct pack_data_entry_s {
     LIST_ENTRY(pack_data_entry_s) entries;
 } pack_data_entry_t;
 
+// The structure represents the stream object
 typedef struct {
     int stream_id;
     bool is_opened;
@@ -133,7 +150,6 @@ typedef struct {
     bool link_type_set;
     char* filename;
     char* stream_name;
-    direction_t direction;
     uint32_t packet_count;
     pcap_file_handle_t pcap_handle;
     pcap_link_type_t link_type;
@@ -145,6 +161,7 @@ typedef struct {
     LIST_HEAD(pack_entries_, pack_data_entry_s) pack_entries;
 } stream_t;
 
+// Main unit test lister class (container of stream objects)
 typedef struct ut_lister_s {
     TaskHandle_t  ut_task_handle;
     //QueueHandle_t ut_queue_handle;
@@ -153,18 +170,42 @@ typedef struct ut_lister_s {
     stream_t stream_output;
     uint32_t packet_index;
     QueueHandle_t notif_queue_handle;
+    char* port_prefix;
+    stream_t** pstreams;
+    int streams_counter;
 } ut_lister_t;
 
-esp_err_t ut_init(const char* port_prefix);
-void ut_close(void);
-esp_err_t ut_get_notification(direction_t direction, struct timeval time);
-int ut_get_stream_data(direction_t direction, void* pdata, size_t data_length, uint32_t timeout_ms);
+// Convert time_us into timeval structure
+struct timeval get_time_val(uint64_t time_us);
+// Convert timeval to time_us
+uint64_t get_time_us(struct timeval time);
 
-esp_err_t ut_stream_capture_packet(direction_t direction, void *payload, uint32_t length, uint16_t crc);
-esp_err_t ut_stream_override_packet(void *payload, uint32_t length);
-esp_err_t ut_stream_insert_packet(direction_t direction, int index, void *payload, uint32_t length);
-void ut_print_list(direction_t direction);
-esp_err_t ut_stream_set_packet_data(direction_t direction, int index, void *payload, uint32_t length);
+// Performs initialization of the unit test file system as defined in the string prefix
+esp_err_t ut_init(const char* port_prefix);
+// Closes the unit test module and frees all used descriptors
+void ut_close(void);
+// Creates the striam defined as stream_name and return its ID in the parameter stream_id
+esp_err_t ut_stream_create(const char* stream_name, int* stream_id);
+// Destroys the the stream and frees all its allocated data
+esp_err_t ut_stream_destroy(stream_t* stream);
+
+// Wait for the read/write notification from the stream during time and return available buffer length
+esp_err_t ut_stream_get_notification(int stream_id, uint32_t time_ticks, size_t* plength);
+esp_err_t ut_stream_get_ready(int stream_id, uint32_t time_ticks, size_t* plength);
+
+// Receive data available in the stream buffer
+int ut_stream_get_data(int stream_id, void* pdata, size_t data_length, uint32_t timeout_ms);
+// Resets the stream buffer and ignore available data
+esp_err_t ut_stream_reset_data(int stream_id);
+
+// Capture buffer into stream as described in the parameters
+esp_err_t ut_stream_capture_packet(int stream_id, void *payload, uint32_t length, uint16_t crc);
+// Insert new packed into stream data list 
+esp_err_t ut_stream_insert_packet(int stream_id, int index, void *payload, uint32_t length);
+// Print the data from packet list 
+void ut_stream_print_list(int stream_id);
+// Sets the data of packet defined with index and overrides its data 
+esp_err_t ut_stream_set_packet_data(int stream_id, int index, void *payload, uint32_t length);
 
 //#undef uart_hal_read_rxfifo
 
