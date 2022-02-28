@@ -223,26 +223,6 @@ esp_err_t __wrap_uart_wait_tx_done(uart_port_t uart_num, TickType_t ticks_to_wai
     return (ESP_OK);
 }
 
-BOOL __wrap_xMBMasterPortSerialWaitEvent(uart_event_t* pxEvent, ULONG xTimeout)
-{
-    if (!pxEvent) {
-        return FALSE;
-    }
-    esp_err_t err = ESP_FAIL;
-    size_t event_length = 0;    
-    err = ut_stream_get_ready(STREAM_ID_INPUT, xTimeout, &event_length);
-    if ((err == ESP_OK) && (event_length > 0)) {
-        if (pxEvent) {
-            pxEvent->type = UART_DATA;
-            pxEvent->timeout_flag = true;
-            pxEvent->size = event_length;
-        }
-        UT_LOGW("UT_READ", " %s: %d bytes in buffer.", __func__, event_length);
-        return TRUE;
-    }
-    return FALSE;
-}
-
 int __wrap_uart_read_bytes(uart_port_t uart_num, void *buf, uint32_t length, TickType_t ticks_to_wait)
 {
     int ret = ut_stream_get_data(STREAM_ID_INPUT, buf, length, 100);
@@ -253,4 +233,25 @@ int __wrap_uart_read_bytes(uart_port_t uart_num, void *buf, uint32_t length, Tic
 int uart_write_bytes(uart_port_t uart_num, const void *src, size_t size)
 {
     return size;
+}
+
+BOOL __wrap_xMBPortSerialWaitEvent(QueueHandle_t xQueueHandle, uart_event_t* pxEvent, ULONG xTimeout)
+{
+    if (!pxEvent) {
+        return FALSE;
+    }
+    UT_LOGW(__func__, " %p, %p, %ul", xQueueHandle, *pxEvent, xTimeout);
+    esp_err_t err = ESP_FAIL;
+    size_t event_length = 0;    
+    err = ut_stream_wait_notification(STREAM_ID_INPUT, xTimeout, &event_length);
+    if ((err == ESP_OK) && (event_length > 0)) {
+        if (pxEvent) {
+            pxEvent->type = UART_DATA;
+            pxEvent->timeout_flag = true;
+            pxEvent->size = event_length;
+        }
+        UT_LOGW("UT_READ", " %s: %d bytes in buffer.", __func__, event_length);
+        return TRUE;
+    }
+    return FALSE;
 }

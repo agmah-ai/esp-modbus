@@ -37,10 +37,10 @@
     return frame_send_method(frame_addr, frame_length); \
 } while (0)
 
+//BOOL result = frame_get_method(frame_addr, frame_length);
 #define MB_WRAPPER_OVERRIDE_GET(frame_addr, frame_length, frame_get_method) do { \
-    BOOL result = frame_get_method(frame_addr, frame_length); \
-    UT_LOGW(__func__, "faddr: %p, flen: ", *frame_addr, *frame_length); \
-    return result; \
+    UT_LOGW(__func__, "faddr: %p, flen: %d", *frame_addr, *frame_length); \
+    return frame_get_method(frame_addr, frame_length); \
 } while (0)
 
 extern USHORT usMBCRC16( UCHAR * pucFrame, USHORT usLen );
@@ -55,10 +55,6 @@ extern esp_err_t __wrap_init_services(mb_tcp_addr_type_t ip_addr_type);
 
 extern eMBMasterReqErrCode __real_eMBMasterWaitRequestFinish( void );
 
-BOOL __wrap_xMBMasterPortSerialInputEvent(uart_event_t* pxEvent, ULONG xTimeout);
-
 //extern esp_err_t __real_mbc_master_send_request(mb_param_request_t* request, void* data_ptr);
-
-//extern eMBMasterReqErrCode __real_eMBMasterReqReadHoldingRegister(UCHAR ucSndAddr, USHORT usRegAddr, USHORT usNRegs, LONG lTimeOut);
 
 #endif

@@ -85,7 +85,7 @@ static USHORT usMBPortSerialRxPoll(size_t xEventSize)
 
     if (bRxStateEnabled) {
         // Get received packet into Rx buffer
-        while(xReadStatus && (usCnt++ <= MB_SERIAL_BUF_SIZE)) {
+        while(xReadStatus && (usCnt++ <= xEventSize)) {
             // Call the Modbus stack callback function and let it fill the buffers.
             xReadStatus = pxMBFrameCBByteReceived(); // callback to execute receive FSM
         }
@@ -93,7 +93,8 @@ static USHORT usMBPortSerialRxPoll(size_t xEventSize)
         // Send event EV_FRAME_RECEIVED to allow stack process packet
 #if !CONFIG_FMB_TIMER_PORT_ENABLED
         // Let the stack know that T3.5 time is expired and data is received
-        (void)pxMBPortCBTimerExpired(); // calls callback xMBRTUTimerT35Expired();
+        vMBMasterSetCurTimerMode(MB_TMODE_T35);
+        pxMBPortCBTimerExpired();
 #endif
         ESP_LOGD(TAG, "RX: %d bytes\n", usCnt);
     }
@@ -126,7 +127,7 @@ static void vUartTask(void *pvParameters)
     uart_event_t xEvent;
     USHORT usResult = 0;
     for(;;) {
-        if (xQueueReceive(xMbUartQueue, (void*)&xEvent, portMAX_DELAY) == pdTRUE) {
+        if (xMBPortSerialWaitEvent(xMbUartQueue, (void*)&xEvent, portMAX_DELAY)) {
             ESP_LOGD(TAG, "MB_uart[%d] event:", ucUartNumber);
             switch(xEvent.type) {
                 //Event of UART receving data

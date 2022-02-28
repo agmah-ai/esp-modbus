@@ -47,7 +47,7 @@
 #include "sdkconfig.h"
 #include "port_serial_slave.h"
 /* ----------------------- Variables ----------------------------------------*/
-static xQueueHandle xQueueHdl;
+static QueueHandle_t xQueueHdl;
 
 #define MB_EVENT_QUEUE_SIZE     (6)
 #define MB_EVENT_QUEUE_TIMEOUT  (pdMS_TO_TICKS(CONFIG_FMB_EVENT_QUEUE_TIMEOUT))
@@ -113,7 +113,7 @@ xMBPortEventGet(eMBEventType * peEvent)
     return xEventHappened;
 }
 
-xQueueHandle
+QueueHandle_t
 xMBPortEventGetHandle(void)
 {
     if(xQueueHdl != NULL)

@@ -31,7 +31,7 @@
 
 // The defines below are used to initialize the UT framework and its active objects
 #define UT_TASK_AFFINITY            1
-#define UT_TASK_PRIORITY            8
+#define UT_TASK_PRIORITY            11
 #define UT_STREAM_BUF_SIZE          255
 #define UT_TASK_EVENT_TOUT_MS       300
 #define UT_TASK_STACK_SIZE          4096
@@ -191,7 +191,9 @@ esp_err_t ut_stream_destroy(stream_t* stream);
 
 // Wait for the read/write notification from the stream during time and return available buffer length
 esp_err_t ut_stream_get_notification(int stream_id, uint32_t time_ticks, size_t* plength);
-esp_err_t ut_stream_get_ready(int stream_id, uint32_t time_ticks, size_t* plength);
+esp_err_t ut_stream_wait_notification(int stream_id, uint32_t time_ticks, size_t* plength);
+esp_err_t ut_stream_send_notification(int stream_id, uint32_t time_ticks, size_t* plength);
+esp_err_t ut_stream_buffer_reset(int stream_id);
 
 // Receive data available in the stream buffer
 int ut_stream_get_data(int stream_id, void* pdata, size_t data_length, uint32_t timeout_ms);

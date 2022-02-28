@@ -166,6 +166,7 @@ BOOL            xMBMasterPortSerialPutByte( CHAR ucByte );
 BOOL            xMBMasterSerialPortGetResponse( UCHAR **ppucMBSerialFrame, USHORT * usSerialLength );
 
 BOOL            xMBMasterSerialPortSendRequest( UCHAR *pucMBSerialFrame, USHORT usSerialLength );
+
 #endif
 
 /* ----------------------- Timers functions ---------------------------------*/

@@ -33,10 +33,10 @@ static void IRAM_ATTR ut_timer_cb(void *param)
                                     pdMS_TO_TICKS(UT_TASK_EVENT_TOUT_MS));
     if ((status == pdTRUE) && pstream) {
         if (pstream->pcur_item) {
-            UT_LOGW("TIMER", "%s[%d], send notification timeout.", pstream->stream_name, (pstream->curr_index - 1));
+            UT_LOGW("TIMER", "%s[%d], send notification.", pstream->stream_name, (pstream->curr_index - 1));
         }
     } else {
-        UT_LOGE("TIMER", "Timer timeout for stream: [%s].", pstream->stream_name);
+        UT_LOGE("TIMER", "Could not notify stream: [%s].", pstream->stream_name);
     }
 }
 
@@ -390,27 +390,47 @@ static esp_err_t ut_stream_handle_data(stream_t* pstream)
 }
 
 // Notify the event task about new read/write event then wait timer event and returns buffer length
-esp_err_t ut_stream_get_ready(int stream_id, uint32_t time_ticks, size_t* plength)
+esp_err_t ut_stream_wait_notification(int stream_id, uint32_t time_ticks, size_t* plength)
 {
-    esp_err_t err = ESP_ERR_INVALID_STATE;
+    esp_err_t err = ESP_OK;
     stream_t* pstream = ut_stream_get_handle(stream_id);
 
     UT_RETURN_ON_FALSE(pstream, ESP_ERR_INVALID_ARG, TAG,
-                            "Stream %d is invalid.", stream_id);
+                            "Stream %s is invalid.", pstream->stream_name);
     // Check data readiness notification from timer 
     stream_t* pnotif_stream = NULL;
     BaseType_t status = xQueueReceive(pstream->queue_handle,
                                         (void*)&pnotif_stream, 
                                         time_ticks); //portMAX_DELAY
     UT_RETURN_ON_FALSE((status && pnotif_stream), ESP_ERR_TIMEOUT, TAG,
-                            "Stream %d get data timeout.", stream_id);
-    //err = ut_stream_handle_data(pstream); // handling of the data
+                            "Stream %s get data timeout (%d).", pstream->stream_name, time_ticks);
     if (plength) {
         *plength = pnotif_stream->pcur_item->capture_length;
     }
     return err;
 }
 
+
+// Notify the event task about new read/write event
+esp_err_t ut_stream_send_notification(int stream_id, uint32_t time_ticks, size_t* plength)
+{
+    esp_err_t err = ESP_ERR_INVALID_STATE;
+    stream_t* pstream = ut_stream_get_handle(stream_id);
+
+    UT_RETURN_ON_FALSE(pstream, ESP_ERR_INVALID_ARG, TAG,
+                    "Stream %d is invalid.", stream_id);
+
+    // Send notification into lister task to iterate to next data
+    BaseType_t status = xQueueSend(ut_lister.notif_queue_handle,
+                            (const void*)&pstream, 
+                            pdMS_TO_TICKS(UT_TASK_EVENT_TOUT_MS));
+    UT_RETURN_ON_FALSE(status, ESP_ERR_INVALID_STATE, TAG,
+                            "Stream %d send notification fail.", stream_id);
+    if (plength) {
+        *plength = pstream->pcur_item->capture_length;
+    }
+    return err;
+}
 
 // Notify the event task about new read/write event then wait timer event and returns buffer length
 esp_err_t ut_stream_get_notification(int stream_id, uint32_t time_ticks, size_t* plength)
@@ -436,7 +456,7 @@ esp_err_t ut_stream_get_notification(int stream_id, uint32_t time_ticks, size_t*
                                 (void*)&pnotif_stream, 
                                 time_ticks); //portMAX_DELAY
         UT_RETURN_ON_FALSE((status && pnotif_stream), ESP_ERR_TIMEOUT, TAG,
-                                "Stream %d get data timeout.", stream_id);
+                                "Stream %s get data timeout (%d ticks).", pstream->stream_name, time_ticks);
         //err = ut_stream_handle_data(pstream); // handling of the data
         if (plength) {
             *plength = pnotif_stream->pcur_item->capture_length;
@@ -449,7 +469,18 @@ esp_err_t ut_stream_get_notification(int stream_id, uint32_t time_ticks, size_t*
     return ESP_OK;
 }
 
-int ut_stream_get_data(int stream_id, void* pdata, size_t data_length, uint32_t timeout_ms) 
+esp_err_t ut_stream_buffer_reset(int stream_id)
+{
+    stream_t* pstream = ut_stream_get_handle(stream_id);
+    UT_RETURN_ON_FALSE(pstream, ESP_ERR_INVALID_STATE, TAG,
+                        "Stream %d handle is invalid.", stream_id);
+    BaseType_t ret = xStreamBufferReset(pstream->stream_buffer_handle); //portMAX_DELAY pdMS_TO_TICKS(timeout_ms)
+    UT_RETURN_ON_FALSE((ret == pdPASS), ESP_ERR_INVALID_STATE, TAG,
+                        "Could not reset stream %s buffer.", pstream->stream_name);
+    return ESP_OK;
+}
+
+int ut_stream_get_data(int stream_id, void* pdata, size_t data_length, uint32_t timeout_ms)
 {
     UT_RETURN_ON_FALSE(pdata, 0, TAG,
                         "Invalid buffer pointer to get data.");
@@ -458,11 +489,9 @@ int ut_stream_get_data(int stream_id, void* pdata, size_t data_length, uint32_t 
     UT_RETURN_ON_FALSE(pstream, 0, TAG,
                         "Stream %d handle is invalid.", stream_id);
     size_t data_len = xStreamBufferReceive(pstream->stream_buffer_handle,
-                                            (void*)pdata, data_length, portMAX_DELAY); //portMAX_DELAY pdMS_TO_TICKS(timeout_ms)
+                                            (void*)pdata, data_length, pdMS_TO_TICKS(timeout_ms)); // portMAX_DELAY 
     if (data_len > 0) {
-        ESP_LOG_BUFFER_HEXDUMP("GET_DATA", pdata, data_len, ESP_LOG_WARN);
-    } else {
-        UT_LOGE(TAG, "Failure to get data from %s stream.", pstream->stream_name);
+        ESP_LOG_BUFFER_HEXDUMP(pstream->stream_name, pdata, data_len, ESP_LOG_WARN);
     }
     return data_len;
 }

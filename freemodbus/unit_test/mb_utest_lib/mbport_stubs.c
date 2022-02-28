@@ -32,15 +32,16 @@ void __wrap_vMBMasterErrorCBRespondTimeout( UCHAR ucDestAddress, const UCHAR* pu
 #endif
 }
 
+*/
 BOOL __wrap_xMBMasterPortEventGet(eMBMasterEventType* eEvent)
 {
     BOOL res = __real_xMBMasterPortEventGet(eEvent);
     if (res) {
-        UT_LOGI("EVT", "Get event: %x", *eEvent);
+        UT_LOGI("EVT", "Get event: %.2x", *eEvent);
     }
     return res;
 }
-*/
+
 
 eMBMasterReqErrCode __wrap_eMBMasterWaitRequestFinish( void )
 {

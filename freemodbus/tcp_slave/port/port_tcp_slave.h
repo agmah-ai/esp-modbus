@@ -76,7 +76,7 @@ typedef struct {
 
 typedef struct {
     TaskHandle_t xMbTcpTaskHandle;      /*!< Server task handle */
-    xQueueHandle xRespQueueHandle;      /*!< Response queue handle */
+    QueueHandle_t xRespQueueHandle;      /*!< Response queue handle */
     MbClientInfo_t* pxCurClientInfo;    /*!< Current client info */
     MbClientInfo_t** pxMbClientInfo;    /*!< Pointers to information about connected clients */
     USHORT usPort;                      /*!< TCP/UDP port number */

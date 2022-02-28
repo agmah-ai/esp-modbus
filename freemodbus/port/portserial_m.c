@@ -89,14 +89,14 @@ static USHORT usMBMasterPortSerialRxPoll(size_t xEventSize)
     USHORT usCnt = 0;
 
     if (bRxStateEnabled) {
-        while(xReadStatus && (usCnt++ <= MB_SERIAL_BUF_SIZE)) {
+        while(xReadStatus && (usCnt++ <= xEventSize)) {
             // Call the Modbus stack callback function and let it fill the stack buffers.
             xReadStatus = pxMBMasterFrameCBByteReceived(); // callback to receive FSM
         }
-
+        ESP_LOGD(TAG, "Received data: %d(bytes in buffer)", (uint32_t)usCnt);
         // The buffer is transferred into Modbus stack and is not needed here any more
         uart_flush_input(ucUartNumber);
-        ESP_LOGD(TAG, "Received data: %d(bytes in buffer)\n", (uint32_t)usCnt);
+        
 #if !CONFIG_FMB_TIMER_PORT_ENABLED
         vMBMasterSetCurTimerMode(MB_TMODE_T35);
         pxMBMasterPortCBTimerExpired();
@@ -128,25 +128,18 @@ BOOL xMBMasterPortSerialTxPoll(void)
     return FALSE;
 }
 
-BOOL xMBMasterPortSerialWaitEvent(uart_event_t* pxEvent, ULONG xTimeout)
-{
-    BOOL xResult = (BaseType_t)xQueueReceive(xMbUartQueue, (void*)pxEvent, (TickType_t) xTimeout);
-    ESP_LOGD(__func__, "Event: %d ", pxEvent->type);
-    return xResult;
-}
-
 // UART receive event task
 static void vUartTask(void* pvParameters)
 {
     uart_event_t xEvent;
     USHORT usResult = 0;
     for(;;) {
-        if (xMBMasterPortSerialWaitEvent(&xEvent, portMAX_DELAY)) {
-            ESP_LOGW(TAG, "MB_uart[%d] event:", ucUartNumber);
+        if (xMBPortSerialWaitEvent(xMbUartQueue, (void*)&xEvent, portMAX_DELAY)) {
+            ESP_LOGD(TAG, "MB_uart[%d] event:", ucUartNumber);
             switch(xEvent.type) {
                 //Event of UART receiving data
                 case UART_DATA:
-                    ESP_LOGW(TAG,"Data event, len: %d.", xEvent.size);
+                    ESP_LOGD(TAG,"Data event, len: %d.", xEvent.size);
                     // This flag set in the event means that no more
                     // data received during configured timeout and UART TOUT feature is triggered
                     if (xEvent.timeout_flag) {
@@ -279,8 +272,7 @@ BOOL xMBMasterPortSerialInit( UCHAR ucPORT, ULONG ulBaudRate, UCHAR ucDataBits, 
  */
 BOOL xMBMasterSerialPortGetResponse( UCHAR **ppucMBSerialFrame, USHORT * usSerialLength )
 {
-    BOOL eStatus = TRUE;
-    return eStatus;
+    return TRUE;
 }
 
 /*
