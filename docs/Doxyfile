@@ -10,10 +10,10 @@
 # Make sure that correct warnings are generated to flag issues with documented code
 #
 # For the complete list of configuration statements see:
-# https://www.stack.nl/~dimitri/doxygen/manual/config.html
+# http://doxygen.nl/manual/config.html
 
 
-PROJECT_NAME = "Espressif Modbus Library"
+PROJECT_NAME = "IDF Programming Guide"
 
 ## The 'INPUT' statement below is used as input by script 'gen-df-input.py'
 ## to automatically generate API reference list files heder_file.inc
@@ -21,12 +21,9 @@ PROJECT_NAME = "Espressif Modbus Library"
 ## and used to include in API reference documentation
 
 INPUT = \
-    ##
-    ## Common - API Reference
-    ##
-    ../freemodbus/common/include/esp_modbus_common.h \
-    ../freemodbus/common/include/esp_modbus_slave.h \
-    ../freemodbus/common/include/esp_modbus_master.h
+    $(PROJECT_PATH)/freemodbus/common/include/esp_modbus_common.h \
+    $(PROJECT_PATH)/freemodbus/common/include/esp_modbus_slave.h \
+    $(PROJECT_PATH)/freemodbus/common/include/esp_modbus_master.h \
 
 ## Get warnings for functions that have no documentation for their parameters or return value
 ##
@@ -38,16 +35,7 @@ ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = YES
 EXPAND_ONLY_PREDEF     = YES
 PREDEFINED             = \
-    __attribute__(x)= \
-    IRAM_ATTR= \
-    configSUPPORT_DYNAMIC_ALLOCATION=1 \
-    configSUPPORT_STATIC_ALLOCATION=1 \
-    configQUEUE_REGISTRY_SIZE=1 \
-    configUSE_RECURSIVE_MUTEXES=1 \
-    configTHREAD_LOCAL_STORAGE_DELETE_CALLBACKS=1 \
-    configNUM_THREAD_LOCAL_STORAGE_POINTERS=1 \
-    configUSE_APPLICATION_TASK_TAG=1 \
-    configTASKLIST_INCLUDE_COREID=1
+    $(ENV_DOXYGEN_DEFINES) \
 
 ## Do not complain about not having dot
 ##
@@ -67,7 +55,3 @@ GENERATE_RTF    = NO
 ## Skip distracting progress messages
 ##
 QUIET = YES
-## Log warnings in a file for further review
-##
-WARN_LOGFILE = "doxygen-warning-log.txt"
-

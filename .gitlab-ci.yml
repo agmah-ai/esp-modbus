@@ -86,24 +86,56 @@ build_idf_latest:
 
 build_docs:
   stage: build
+  image: $CI_DOCKER_REGISTRY/esp-idf-doc-env:v4.4-1-v4
   tags:
     - build_docs
+  only:
+    changes:
+      - "docs/**/*"
   artifacts:
     when: always
     paths:
-      - docs/doxygen-warning-log.txt
-      - docs/sphinx-warning-log.txt
-      - docs/_build/html
-    expire_in: 1 day
+      - docs/_build/*/*/*.txt
+      - docs/_build/*/*/html/*
+    expire_in: 4 days
   # No cleaning when the artifacts
   after_script: []
   script:
-    - source /opt/pyenv/activate
-    - pyenv global $(pyenv versions --bare)
     - cd docs
     - python -m pip install -r requirements.txt
-    - make html
-    - ./check_doc_warnings.sh
+    - build-docs -l en -t {esp32,esp32s2,esp32c3,esp32s3}
+
+.deploy_docs_template:
+  stage: deploy
+  image: $CI_DOCKER_REGISTRY/esp-idf-doc-env:v4.4-1-v4
+  tags:
+    - deploy_docs
+  needs:
+    - build_docs
+  only:
+    changes:
+      - "docs/**/*"
+  script:
+    - source ${CI_PROJECT_DIR}/docs/utils.sh
+    - add_doc_server_ssh_keys $DOCS_DEPLOY_PRIVATEKEY $DOCS_DEPLOY_SERVER $DOCS_DEPLOY_SERVER_USER
+    - export GIT_VER=$(git describe --always)
+    - pip install -r ${CI_PROJECT_DIR}/docs/requirements.txt
+    - deploy-docs
+
+deploy_docs_preview:
+  extends:
+    - .deploy_docs_template
+  except:
+    refs:
+      - master
+  variables:
+    TYPE: "preview"
+    DOCS_BUILD_DIR: "${CI_PROJECT_DIR}/docs/_build/"
+    DOCS_DEPLOY_PRIVATEKEY: "$DOCS_DEPLOY_KEY"
+    DOCS_DEPLOY_SERVER: "$DOCS_SERVER"
+    DOCS_DEPLOY_SERVER_USER: "$DOCS_SERVER_USER"
+    DOCS_DEPLOY_PATH: "$DOCS_PATH"
+    DOCS_DEPLOY_URL_BASE: "https://$DOCS_PREVIEW_SERVER_URL/docs/esp-modbus"
 
 push_master_to_github:
   stage: deploy
