@@ -42,7 +42,6 @@ BOOL __wrap_xMBMasterPortEventGet(eMBMasterEventType* eEvent)
     return res;
 }
 
-
 eMBMasterReqErrCode __wrap_eMBMasterWaitRequestFinish( void )
 {
     eMBMasterReqErrCode event = __real_eMBMasterWaitRequestFinish();
@@ -50,6 +49,19 @@ eMBMasterReqErrCode __wrap_eMBMasterWaitRequestFinish( void )
     return event;
 }
 
+BOOL __wrap_xMBPortEventGet(eMBEventType * peEvent)
+{
+    // Get basic Modbus events hook
+    BOOL status = __real_xMBPortEventGet(peEvent);
+    UT_LOGI("EVT", "Event get: %x", *peEvent);
+    if (status) {
+        if (peEvent && *peEvent == EV_READY) {
+            ut_stream_send_notification(STREAM_ID_INPUT, pdMS_TO_TICKS(100), NULL);
+            UT_LOGW("EVT", "Event (0x%.2x) received.", *peEvent);
+        }
+    }
+    return status;
+}
 
 #ifdef __cplusplus
 }

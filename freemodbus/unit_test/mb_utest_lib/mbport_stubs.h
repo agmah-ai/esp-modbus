@@ -16,6 +16,15 @@
 
 #if CONFIG_MB_UTEST
 
+#define UT_PORT_INIT(part_pref) do { \
+    UT_LOGI(__func__, "Init " # part_pref " port", __func__); \
+    ut_init(part_pref); \
+    UT_RETURN_ON_FALSE((ut_stream_create("input", &inp_stream_id) == ESP_OK), \
+                       FALSE, TAG, "Could not create input stream."); \
+    UT_RETURN_ON_FALSE((ut_stream_create("output", &out_stream_id) == ESP_OK), \
+                       FALSE, TAG, "Could not create output stream."); \
+} while (0)
+
 #define MB_WRAPPER_LOG_GET(frame_addr, frame_length, frame_get_method) do { \
     UT_LOGW("UT", "Func wrapper called: %s.", __func__); \
     BOOL ret = frame_get_method(frame_addr, frame_length); \
@@ -54,6 +63,8 @@ extern BOOL __real_xMBMasterPortEventGet(eMBMasterEventType* eEvent);
 extern esp_err_t __wrap_init_services(mb_tcp_addr_type_t ip_addr_type);
 
 extern eMBMasterReqErrCode __real_eMBMasterWaitRequestFinish( void );
+
+extern BOOL __real_xMBPortEventGet(eMBEventType * peEvent);
 
 //extern esp_err_t __real_mbc_master_send_request(mb_param_request_t* request, void* data_ptr);
 

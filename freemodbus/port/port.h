@@ -38,16 +38,17 @@
 #define PORT_COMMON_H_
 
 #include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"         // for queue
+
 #include "esp_log.h"                // for ESP_LOGE macro
 #include "esp_timer.h"
+#include "driver/uart.h"            // for uart_event_t
 
 #if __has_include("driver/gptimer.h")
 #include "driver/gptimer.h"
 #else
 #include "driver/timer.h"
 #endif
-
-#include "driver/uart.h"            // for uart_event_t
 
 #include "mbconfig.h"
 

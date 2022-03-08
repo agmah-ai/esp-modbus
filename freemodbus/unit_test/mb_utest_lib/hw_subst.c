@@ -219,20 +219,36 @@ int __wrap_lwip_close(int s)
 
 esp_err_t __wrap_uart_wait_tx_done(uart_port_t uart_num, TickType_t ticks_to_wait)
 {
+#if CONFIG_MB_UTEST_OVERRIDE
     ESP_LOGW(__func__, "Wait TX done UART %d, %u.", uart_num, ticks_to_wait);
     return (ESP_OK);
+#elif CONFIG_MB_UTEST_LOG
+    //return __real_uart_wait_tx_done(uart_num, ticks_to_wait);
+    return ESP_OK;
+#endif
 }
 
 int __wrap_uart_read_bytes(uart_port_t uart_num, void *buf, uint32_t length, TickType_t ticks_to_wait)
 {
+#if CONFIG_MB_UTEST_OVERRIDE
     int ret = ut_stream_get_data(STREAM_ID_INPUT, buf, length, 100);
     UT_LOGW(__func__, "UART: %d, buf:%p, len:%d, tout:%u.", uart_num, buf, length, ticks_to_wait); 
     return ret;
+#elif CONFIG_MB_UTEST_LOG
+    //return __real_uart_read_bytes(uart_num, buf, length, ticks_to_wait);
+    return length;
+#endif
 }
 
-int uart_write_bytes(uart_port_t uart_num, const void *src, size_t size)
+int __wrap_uart_write_bytes(uart_port_t uart_num, const void *src, size_t size)
 {
+#if CONFIG_MB_UTEST_LOG
+    UT_LOGI(__func__, "write %d bytes.", size);
     return size;
+    //return __real_uart_write_bytes(uart_port_t uart_num, const void *src, size_t size);
+#elif CONFIG_MB_UTEST_OVERRIDE
+    return size;
+#endif
 }
 
 BOOL __wrap_xMBPortSerialWaitEvent(QueueHandle_t xQueueHandle, uart_event_t* pxEvent, ULONG xTimeout)
@@ -240,7 +256,9 @@ BOOL __wrap_xMBPortSerialWaitEvent(QueueHandle_t xQueueHandle, uart_event_t* pxE
     if (!pxEvent) {
         return FALSE;
     }
-    UT_LOGW(__func__, " %p, %p, %ul", xQueueHandle, *pxEvent, xTimeout);
+    UT_LOGW(__func__, " %p, %p, %lu", xQueueHandle, pxEvent, xTimeout);
+    BOOL status = FALSE;
+#if CONFIG_MB_UTEST_OVERRIDE
     esp_err_t err = ESP_FAIL;
     size_t event_length = 0;    
     err = ut_stream_wait_notification(STREAM_ID_INPUT, xTimeout, &event_length);
@@ -251,7 +269,10 @@ BOOL __wrap_xMBPortSerialWaitEvent(QueueHandle_t xQueueHandle, uart_event_t* pxE
             pxEvent->size = event_length;
         }
         UT_LOGW("UT_READ", " %s: %d bytes in buffer.", __func__, event_length);
-        return TRUE;
+        status = TRUE;
     }
-    return FALSE;
+#elif CONFIG_MB_UTEST_LOG
+    status = __real_xMBPortSerialWaitEvent(xQueueHandle, pxEvent, xTimeout);
+#endif
+    return status;
 }

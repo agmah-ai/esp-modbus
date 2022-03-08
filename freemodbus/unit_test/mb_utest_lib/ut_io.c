@@ -401,7 +401,7 @@ esp_err_t ut_stream_wait_notification(int stream_id, uint32_t time_ticks, size_t
     stream_t* pnotif_stream = NULL;
     BaseType_t status = xQueueReceive(pstream->queue_handle,
                                         (void*)&pnotif_stream, 
-                                        time_ticks); //portMAX_DELAY
+                                        time_ticks);
     UT_RETURN_ON_FALSE((status && pnotif_stream), ESP_ERR_TIMEOUT, TAG,
                             "Stream %s get data timeout (%d).", pstream->stream_name, time_ticks);
     if (plength) {
@@ -489,7 +489,7 @@ int ut_stream_get_data(int stream_id, void* pdata, size_t data_length, uint32_t 
     UT_RETURN_ON_FALSE(pstream, 0, TAG,
                         "Stream %d handle is invalid.", stream_id);
     size_t data_len = xStreamBufferReceive(pstream->stream_buffer_handle,
-                                            (void*)pdata, data_length, pdMS_TO_TICKS(timeout_ms)); // portMAX_DELAY 
+                                            (void*)pdata, data_length, pdMS_TO_TICKS(timeout_ms));
     if (data_len > 0) {
         ESP_LOG_BUFFER_HEXDUMP(pstream->stream_name, pdata, data_len, ESP_LOG_WARN);
     }
@@ -690,7 +690,9 @@ esp_err_t ut_stream_capture_packet(int stream_id, void *payload, uint32_t length
     struct timeval tv_now;
     gettimeofday(&tv_now, NULL);
     esp_err_t err = pcap_capture_packet(pcap_handle, payload, length, tv_now.tv_sec, tv_now.tv_usec);
-    ESP_LOG_BUFFER_HEX_LEVEL(pstream->stream_name, (void*)payload, length, ESP_LOG_INFO);
+    if (payload) {
+        ESP_LOG_BUFFER_HEX_LEVEL(pstream->stream_name, (void*)payload, length, ESP_LOG_INFO);
+    }
     UT_RETURN_ON_ERROR(err, TAG, ".pcap file is already closed");
     return err;
 }

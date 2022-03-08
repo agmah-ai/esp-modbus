@@ -32,12 +32,14 @@ set(WRAP_FUNCTIONS
     xMBMasterSerialPortGetResponse
     xMBMasterSerialPortSendRequest
     vMBMasterPortSerialClose
+    xMBPortEventGet
     xMBPortSerialInit
     xMBPortSerialPutByte
     xMBPortSerialGetByte
     xMBSerialPortGetRequest
     xMBSerialPortSendResponse
     vMBPortSerialClose
+    xMBMasterPortEventGet
     xMBMasterTCPPortInit
     xMBMasterTCPPortSendRequest
     xMBMasterTCPPortGetResponse
@@ -46,9 +48,7 @@ set(WRAP_FUNCTIONS
     xMBTCPPortSendResponse
     xMBTCPPortGetRequest
     vMBTCPPortClose
-    xMBMasterPortEventGet
     xMBPortSerialWaitEvent
-    #xMBMasterPortSerialWaitEvent
     #vMBMasterErrorCBRespondTimeout
     #usMBMasterPortSerialRxPoll
     #eMBMasterWaitRequestFinish

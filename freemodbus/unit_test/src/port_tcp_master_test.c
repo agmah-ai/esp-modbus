@@ -16,12 +16,7 @@ static int out_stream_id = -1;
 
 BOOL __wrap_xMBMasterTCPPortInit( USHORT usTCPPort )
 {
-    UT_LOGI("UT", "Func wrapper called: %s.", __func__);
-    ut_init("mbm_tcp");
-    UT_RETURN_ON_FALSE((ut_stream_create("input", &inp_stream_id) == ESP_OK), 
-                        FALSE, TAG, "Could not create input stream.");
-    UT_RETURN_ON_FALSE((ut_stream_create("output", &out_stream_id) == ESP_OK), 
-                        FALSE, TAG, "Could not create output stream.");
+    UT_PORT_INIT("mbm_tcp");
     return __real_xMBMasterTCPPortInit(usTCPPort);
 }
 

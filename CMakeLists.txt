@@ -61,12 +61,11 @@ message(STATUS "DEBUG: Use esp-modbus component folder: ${CMAKE_CURRENT_LIST_DIR
 
 set(dep_inj_dir "${CMAKE_CURRENT_LIST_DIR}/freemodbus/unit_test")
 
-
 if(CONFIG_MB_UTEST)
     set(dep_inj_dir "${CMAKE_CURRENT_LIST_DIR}/freemodbus/unit_test")
     list(APPEND priv_include_dirs "${dep_inj_dir}/include")
     foreach(src ${srcs})
-        get_filename_component(src_wo_ext ${src} NAME_WLE)
+        get_filename_component(src_wo_ext ${src} NAME_WE)
         message(STATUS "file without extention: ${src_wo_ext}")
         if(EXISTS "${dep_inj_dir}/src/${src_wo_ext}_test.c")
             message(STATUS "file without extention: ${src_wo_ext}")
