@@ -19,7 +19,7 @@ Messaging Model And Data Mapping
 
 Modbus is an application protocol that defines rules for messaging structure and data organization that are independent of the data transmission medium. Traditional serial Modbus is a register-based protocol that defines message transactions that occur between master(s) and slave devices (multiple masters are allowed on using Modbus TCP/IP). The slave devices listen for communication from the master and simply respond as instructed. The master(s) always controls communication and may communicate directly to one slave, or all connected slaves, but the slaves cannot communicate directly with each other.
 
-.. figure:: ../../../_static/modbus-segment.png
+.. figure:: ../_static/modbus-segment.png
     :align: center
     :scale: 80%
     :alt: Modbus segment diagram
@@ -33,7 +33,7 @@ The register map of each slave device is usually part of its device manual. A Sl
 
 The Modbus protocol allows devices to map data to four types of registers (Holding, Input, Discrete, Coil). The figure below illustrates an example mapping of a device's data to the four types of registers.
 
-.. figure:: ../../../_static/modbus-data-mapping.png
+.. figure:: ../_static/modbus-data-mapping.png
     :align: center
     :scale: 80%
     :alt: Modbus data mapping
@@ -291,12 +291,12 @@ The order of IP address string corresponds to short slave address in the Data Di
 
     ESP_ERROR_CHECK(mbc_master_setup((void*)&comm_info));
 
-.. note:: Refer to :doc:`esp_netif component <../network/esp_netif>` for more information about network interface initialization.
+.. note:: Refer to `esp_netif component <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_netif.html>`__ for more information about network interface initialization.
 
 The slave IP addresses in the table can be assigned automatically using mDNS service as described in the example.
-Refer to :example:`protocols/modbus/tcp/mb_tcp_master` for more information.
+Refer to :ref:`example TCP master <example_mb_tcp_master>` for more information.
 
-.. note:: RS485 communication requires call to UART specific APIs to setup communication mode and pins. Refer to :ref:`uart-api-running-uart-communication` section of UART documentation.
+.. note:: RS485 communication requires call to UART specific APIs to setup communication mode and pins. Refer to the `UART communication section <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/uart.html#uart-api-running-uart-communication>`__ in documentation.
 
 
 .. _modbus_api_master_start_communication:
@@ -533,7 +533,7 @@ The blocking call to function waits for a event specified (represented as an eve
 
 :cpp:func:`mbc_slave_get_param_info`
 
-The function gets information about accessed parameters from the Modbus controller event queue. The KConfig :ref:`CONFIG_FMB_CONTROLLER_NOTIFY_QUEUE_SIZE` key can be used to configure the notification queue size. The timeout parameter allows a timeout to be specified when waiting for a notification. The :cpp:type:`mb_param_info_t` structure contains information about accessed parameter.
+The function gets information about accessed parameters from the Modbus controller event queue. The KConfig ``CONFIG_FMB_CONTROLLER_NOTIFY_QUEUE_SIZE`` key can be used to configure the notification queue size. The timeout parameter allows a timeout to be specified when waiting for a notification. The :cpp:type:`mb_param_info_t` structure contains information about accessed parameter.
 
 .. list-table:: Table 4 Description of the register info structure: :cpp:type:`mb_param_info_t`
   :widths: 10 90
@@ -559,7 +559,7 @@ Example to get event when holding or input registers accessed in the slave:
     #define MB_READ_MASK            (MB_EVENT_INPUT_REG_RD | MB_EVENT_HOLDING_REG_RD)
     #define MB_WRITE_MASK           (MB_EVENT_HOLDING_REG_WR)
     #define MB_READ_WRITE_MASK      (MB_READ_MASK | MB_WRITE_MASK)
-    #define MB_PAR_INFO_GET_TOUT    (10 / portTICK_PERIOD_MS)                           
+    #define MB_PAR_INFO_GET_TOUT    (10 / portTICK_RATE_MS)                           
     ....
                                                 
     // The function blocks while waiting for register access
@@ -625,10 +625,10 @@ If the examples do not work as expected and slave and master boards are not able
     - Refer to slave register map. Check the master data dictionary for correctness.
   * - 0x107
     - ``ESP_ERR_TIMEOUT`` - Slave response timeout - Modbus slave did not send response during configured slave response timeout.
-    - Measure and increase the maximum slave response timeout `idf.py menuconfig`, option :ref:`CONFIG_FMB_MASTER_TIMEOUT_MS_RESPOND`.
+    - Measure and increase the maximum slave response timeout `idf.py menuconfig`, option ``CONFIG_FMB_MASTER_TIMEOUT_MS_RESPOND``.
       Check physical connection or network configuration and make sure that the slave response can reach the master side.
-      If the application has some high performance tasks with higher priority than :ref:`CONFIG_FMB_PORT_TASK_PRIO` it is recommended to place Modbus tasks on the other core using an option :ref:`CONFIG_FMB_PORT_TASK_AFFINITY`.
-      Configure the Modbus task's priority :ref:`CONFIG_FMB_PORT_TASK_PRIO` to ensure that the task gets sufficient processing time to handle Modbus stack events.
+      If the application has some high performance tasks with higher priority than ``CONFIG_FMB_PORT_TASK_PRIO`` it is recommended to place Modbus tasks on the other core using an option ``CONFIG_FMB_PORT_TASK_AFFINITY``.
+      Configure the Modbus task's priority ``CONFIG_FMB_PORT_TASK_PRIO`` to ensure that the task gets sufficient processing time to handle Modbus stack events.
   * - 0x108
     - ``ESP_ERR_INVALID_RESPONSE`` - Received unsupported response from slave or frame check failure. Master can not execute command handler because the command is either not supported or is incorrect.
     - Check the physical connection then refer to register map of your slave to configure the master data dictionary properly.
@@ -641,10 +641,21 @@ Application Example
 
 The examples below use the FreeModbus library port for serial TCP slave and master implementations accordingly. The selection of stack is performed through KConfig menu option "Enable Modbus stack support ..." for appropriate communication mode and related configuration keys.
 
-- :example:`protocols/modbus/serial/mb_slave`
-- :example:`protocols/modbus/serial/mb_master`
-- :example:`protocols/modbus/tcp/mb_tcp_slave`
-- :example:`protocols/modbus/tcp/mb_tcp_master`
+.. _example_mb_slave:
+
+- `Modbus serial slave example <https://github.com/espressif/esp-idf/tree/master/examples/protocols/modbus/serial/mb_slave>`__
+
+.. _example_mb_master:
+
+- `Modbus serial master example <https://github.com/espressif/esp-idf/tree/master/examples/protocols/modbus/serial/mb_master>`__
+
+.. _example_mb_tcp_master:
+
+- `Modbus TCP master example <https://github.com/espressif/esp-idf/tree/master/examples/protocols/modbus/tcp/mb_tcp_master>`__
+
+.. _example_mb_tcp_slave:
+
+- `Modbus TCP slave example <https://github.com/espressif/esp-idf/tree/master/examples/protocols/modbus/tcp/mb_tcp_slave>`__
 
 Please refer to the specific example README.md for details.
 
