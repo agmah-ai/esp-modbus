@@ -9,8 +9,3 @@ The Modbus is a data communications protocol originally published by Modicon (no
 
      ESP-Modbus documentation and API <esp-modbus>
 
-
-ESP-Modbus Readme File
-======================
-
-.. include:: ../../freemodbus/README.rst
