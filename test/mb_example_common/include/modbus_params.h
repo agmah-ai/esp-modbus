@@ -35,6 +35,7 @@ typedef struct
 {
     uint8_t coils_port0;
     uint8_t coils_port1;
+    uint16_t coils_port2;
 } coil_reg_params_t;
 #pragma pack(pop)
 

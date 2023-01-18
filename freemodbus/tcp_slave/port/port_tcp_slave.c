@@ -730,7 +730,7 @@ xMBTCPPortSendResponse( UCHAR * pucMBTCPFrame, USHORT usTCPLength )
         pucMBTCPFrame[MB_TCP_TID + 1] = (UCHAR)(xConfig.pxCurClientInfo->usTidCnt & 0xFF);
 
         // Write message into socket and disable Nagle's algorithm
-        xErr = send(xConfig.pxCurClientInfo->xSockId, pucMBTCPFrame, usTCPLength, TCP_NODELAY);
+        xErr = send(xConfig.pxCurClientInfo->xSockId, pucMBTCPFrame, usTCPLength, 0);
         if (xErr < 0) {
             ESP_LOGE(TAG, "Socket(#%d), fail to send data, errno = %d",
                     xConfig.pxCurClientInfo->xSockId, errno);

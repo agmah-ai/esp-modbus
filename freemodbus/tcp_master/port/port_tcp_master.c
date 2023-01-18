@@ -324,6 +324,12 @@ static int xMBTCPPortMasterGetBuf(MbSlaveInfo_t* pxInfo, UCHAR* pucDstBuf, USHOR
     return usLength;
 }
 
+static int vMBTCPPortMasterFlushRx(MbSlaveInfo_t* pxInfo)
+{
+    UCHAR pucBuf[MB_PDU_SIZE_MAX + MB_TCP_FUNC] = {0};
+    return recv(pxInfo->xSockId, pucBuf, sizeof(pucBuf), MSG_DONTWAIT);
+}
+
 static int vMBTCPPortMasterReadPacket(MbSlaveInfo_t* pxInfo)
 {
     int xLength = 0;
@@ -338,31 +344,52 @@ static int vMBTCPPortMasterReadPacket(MbSlaveInfo_t* pxInfo)
                                         MB_TCP_UID, xMBTCPPortMasterGetRespTimeLeft(pxInfo));
         if (xRet < 0) {
             pxInfo->xRcvErr = xRet;
+            vMBTCPPortMasterFlushRx(pxInfo);
             return xRet;
         } else if (xRet != MB_TCP_UID) {
-            ESP_LOGD(TAG, "Socket (#%d)(%s), Fail to read modbus header. ret=%d",
+            ESP_LOGE(TAG, "Socket (#%d)(%s), Fail to read modbus header. ret=%d",
                                                                 pxInfo->xSockId, pxInfo->pcIpAddr, xRet);
             pxInfo->xRcvErr = ERR_VAL;
+            vMBTCPPortMasterFlushRx(pxInfo);
             return ERR_VAL;
         }
+
+        uint16_t xPid = (int)MB_TCP_GET_FIELD(pxInfo->pucRcvBuf, MB_TCP_PID);
+        if (xPid != 0) {
+           ESP_LOGE(TAG, "PID field is incorrect: %d, skip frame.", xPid);
+           pxInfo->xRcvErr = ERR_VAL;
+           vMBTCPPortMasterFlushRx(pxInfo);
+           return ERR_VAL;
+        }
+
         // If we have received the MBAP header we can analyze it and calculate
         // the number of bytes left to complete the current request.
         xLength = (int)MB_TCP_GET_FIELD(pxInfo->pucRcvBuf, MB_TCP_LEN);
-        xRet = xMBTCPPortMasterGetBuf(pxInfo, &pxInfo->pucRcvBuf[MB_TCP_UID],
+        if (xLength > MB_PDU_SIZE_MAX) {
+            ESP_LOGE(TAG, "Incorrect frame length: %d", xLength);
+            ESP_LOG_BUFFER_HEX_LEVEL(TAG, pxInfo->pucRcvBuf, MB_TCP_UID, ESP_LOG_WARN);
+            pxInfo->xRcvErr = ERR_BUF;
+            vMBTCPPortMasterFlushRx(pxInfo);
+            return ERR_VAL;
+        }
+
+        xRet = xMBTCPPortMasterGetBuf(pxInfo, &pxInfo->pucRcvBuf[MB_TCP_UID], 
                                         xLength, xMBTCPPortMasterGetRespTimeLeft(pxInfo));
         if (xRet < 0) {
             pxInfo->xRcvErr = xRet;
+            vMBTCPPortMasterFlushRx(pxInfo);
             return xRet;
         } else if (xRet != xLength) {
             // Received incorrect or fragmented packet.
-            ESP_LOGD(TAG, "Socket(#%d)(%s) incorrect packet, length=%d, TID=0x%02x, errno=%d(%s)",
+            ESP_LOGE(TAG, "Socket(#%d)(%s) incorrect packet, length=%d, TID=0x%02x, errno=%d(%s)",
                                                pxInfo->xSockId, pxInfo->pcIpAddr, pxInfo->usRcvPos,
                                                usTidRcv, errno, strerror(errno));
+            vMBTCPPortMasterFlushRx(pxInfo);
             pxInfo->xRcvErr = ERR_VAL;
             return ERR_VAL;
         }
-        usTidRcv = MB_TCP_GET_FIELD(pxInfo->pucRcvBuf, MB_TCP_TID);
 
+        usTidRcv = MB_TCP_GET_FIELD(pxInfo->pucRcvBuf, MB_TCP_TID);
         // Check transaction identifier field in the incoming packet.
         if ((pxInfo->usTidCnt - 1) != usTidRcv) {
             ESP_LOGD(TAG, "Socket (#%d)(%s), incorrect TID(0x%02x)!=(0x%02x) received, discard data.",
@@ -370,6 +397,7 @@ static int vMBTCPPortMasterReadPacket(MbSlaveInfo_t* pxInfo)
             pxInfo->xRcvErr = ERR_BUF;
             return ERR_BUF;
         }
+
         pxInfo->usRcvPos += xRet + MB_TCP_UID;
         ESP_LOGD(TAG, "Socket(#%d)(%s) get data, length=%d, TID=0x%02x, errno=%d(%s)",
                                            pxInfo->xSockId, pxInfo->pcIpAddr, pxInfo->usRcvPos,
@@ -380,14 +408,15 @@ static int vMBTCPPortMasterReadPacket(MbSlaveInfo_t* pxInfo)
     return -1;
 }
 
-static err_t xMBTCPPortMasterSetNonBlocking(MbSlaveInfo_t* pxInfo)
+static err_t xMBTCPPortMasterSetBlocking(MbSlaveInfo_t* pxInfo, bool bIsBlocking)
 {
     if (!pxInfo) {
         return ERR_CONN;
     }
     // Set non blocking attribute for socket
     ULONG ulFlags = fcntl(pxInfo->xSockId, F_GETFL);
-    if (fcntl(pxInfo->xSockId, F_SETFL, ulFlags | O_NONBLOCK) == -1) {
+    ulFlags = bIsBlocking ? ulFlags & ~O_NONBLOCK : ulFlags | O_NONBLOCK;
+    if (fcntl(pxInfo->xSockId, F_SETFL, ulFlags) == -1) { 
         ESP_LOGE(TAG, "Socket(#%d)(%s), fcntl() call error=%d",
                                               pxInfo->xSockId, pxInfo->pcIpAddr, errno);
         return ERR_WOULDBLOCK;
@@ -574,7 +603,7 @@ static err_t xMBTCPPortMasterConnect(MbSlaveInfo_t* pxInfo)
         }
 
         // Set non blocking attribute for socket
-        xMBTCPPortMasterSetNonBlocking(pxInfo);
+        xMBTCPPortMasterSetBlocking(pxInfo, false);
 
         // Can return EINPROGRESS as an error which means
         // that connection is in progress and should be checked later
@@ -794,6 +823,7 @@ static void vMBTCPPortMasterTask(void *pvParameters)
         // Slave receive data loop
         while(usSlaveConnCnt) {
             xReadSet = xConnSet;
+            
             // Check transmission event to clear appropriate bit.
             xMBMasterPortFsmWaitConfirmation(EV_MASTER_FRAME_TRANSMIT, pdMS_TO_TICKS(MB_EVENT_WAIT_TOUT_MS));
             // Synchronize state machine with send packet event
@@ -809,9 +839,12 @@ static void vMBTCPPortMasterTask(void *pvParameters)
                 xMBTCPPortMasterCheckShutdown();
                 break; // incorrect slave descriptor, reconnect.
             }
+            // Set socket blocking mode enabled back
+            xMBTCPPortMasterSetBlocking(pxCurrInfo, true); // true
             xTime = xMBTCPPortMasterGetRespTimeLeft(pxCurrInfo);
             ESP_LOGD(TAG, "Set select timeout, left time: %ju ms.",
                                         xMBTCPPortMasterGetRespTimeLeft(pxCurrInfo));
+
             // Wait respond from current slave during respond timeout
             int xRes = vMBTCPPortMasterRxCheck(pxCurrInfo->xSockId, &xReadSet, xTime);
             if (xRes == ERR_TIMEOUT) {
@@ -964,7 +997,10 @@ int xMBMasterTCPPortWritePoll(MbSlaveInfo_t* pxInfo, const UCHAR * pucMBTCPFrame
                                     pxInfo->xIndex, pxInfo->xSockId, pxInfo->pcIpAddr, xRes, errno);
         return xRes;
     }
-    xRes = send(pxInfo->xSockId, pucMBTCPFrame, usTCPLength, TCP_NODELAY);
+    
+    vMBTCPPortMasterFlushRx(pxInfo);
+    
+    xRes = send(pxInfo->xSockId, pucMBTCPFrame, usTCPLength, 0);
     if (xRes < 0) {
         ESP_LOGE(TAG, MB_SLAVE_FMT(", send data error: %d, errno %d"),
                                         pxInfo->xIndex, pxInfo->xSockId, pxInfo->pcIpAddr, xRes, errno);
@@ -986,6 +1022,7 @@ xMBMasterTCPPortSendResponse( UCHAR * pucMBTCPFrame, USHORT usTCPLength )
             ESP_LOGD(TAG, MB_SLAVE_FMT(", send to died slave, error = %d"),
                                                   pxInfo->xIndex, pxInfo->xSockId, pxInfo->pcIpAddr, pxInfo->xError);
         } else {
+
             // Apply TID field to the frame before send
             pucMBTCPFrame[MB_TCP_TID] = (UCHAR)(pxInfo->usTidCnt >> 8U);
             pucMBTCPFrame[MB_TCP_TID + 1] = (UCHAR)(pxInfo->usTidCnt & 0xFF);
@@ -1019,7 +1056,7 @@ xMBMasterTCPPortSendResponse( UCHAR * pucMBTCPFrame, USHORT usTCPLength )
 }
 
 // Timer handler to check timeout of socket response
-BOOL MB_PORT_ISR_ATTR
+BOOL IRAM_ATTR
 xMBMasterTCPTimerExpired(void)
 {
     BOOL xNeedPoll = FALSE;
