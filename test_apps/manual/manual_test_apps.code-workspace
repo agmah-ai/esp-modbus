@@ -1,0 +1,27 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../.."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"gptimer.h": "c",
+			"mbconfig.h": "c",
+			"mb_types.h": "c",
+			"port_serial_common.h": "c",
+			"mb_common.h": "c",
+			"mb_slave.h": "c",
+			"mb_func.h": "c",
+			"string_view": "c",
+			"regex": "c",
+			"mb_proto.h": "c",
+			"streambuf": "c",
+			"mb_config.h": "c",
+			"ascii_transport.h": "c"
+		}
+	}
+}

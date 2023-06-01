@@ -1,0 +1,65 @@
+1. +- Add the ring buffer to the serial port, read data in the event task at t3.5 timeout, then store in the ring buffer and read all packets from ring buffer in the read callback.
+
+2. All factory menthods of Modbus controller update to clear all objects and memory that can be left at the creation of their
+instances. USE GOTO_ON_FALSE() macro with label to free all memory that allocatated by subconstructor.
+
+3. Make separate public factory methods for RTU and ASCII instead of mixed serial controller factory method.
+Create separate source for factory methods and expose its header for common modbus controller.
+
+4. Change serial port to completely disable the driver in stop() method call and enable it again in enable() method.
+5. Move port creation into mb object factory methods instead of construction the object from transducer factory method. 
+This allow to test this separately.
+
+6. Update the tcp transport and port for master and slave to handle conection phase separately for each node.
+Add event based state machine to handle all phases of the TCP transport.
+Handdle timeout event in the transport and IO in port.
+In the abstact factory of TCP transport realize the callback function which will be called by transport when connection is esteblished.
+This callback function will start the modbus controller task to process the events.
+
+The TCP master abstract factory function has the configuration structure pointer as a parameter.
+It has the list of slave information that is created by MB controller and be propagated to MB TCP factory 
+to start initialization of node information and then connection phase.
+The list of slaves can be defined as the array of pointers to char e.g. char *slave_list[] = { "1:slave1_ip:port", "2:slave2_ip:port" }.
+
+The user should be able to add devices list first at the interface creation and then start communication even if not all nodes are connected yet.
+In this case the read/write functions return MB_ENOCONN error.
+
+7. + Change the modbus controller `mbc` package that shall include the common part and the specific part.
+The common source will include the header of factory methods and can transfer call to the modbus object factory.
+
+8. Change the main FSM for the modbus objects to use the event queue which will include the timestamps of the triggering.
+The main FSM shall check the timestamps of events to safely skip incorrect event triggering.
+So, the Modbus object shall include the transaction member which will keep transaction start and end timestamps.
+For the master transaction start is start of request transmit phase, the end is get response or timeout event.
+
+The alghoritm:
+This is related to incorrect triggering of DATA_RECEIVED event after RESPONSE_TIMEOUT event in which case the received data shifting may be appeared.
+The main object shall be able to handle the case when data is received outside of transaction or old data received as part of previous transaction.
+
+The main event queue uses the eventqueue. The sender task call the wait function to wait for the eventGroup bits and sets the error response as the returned result (this part is the same as it was before).
+The main event loop getting the event queue events from other sources (tout interrupt, receiver and sender port code).
+Once the correct event happened the event loop routine checks the timestemp of each event 
+if it happened during active transaction time (kept on start stage - sending and completed on error processing stage.), do the processing executing the function handlers 
+and then activates the appropriate bits on ERROR_PROCESS stage. 
+The transaction semaphore is released on ERROR_PROCESS stage as was before.
+
+9. Change the initialization of event loop to have just one instance of loop but several instances of event handler.
+The event handler registration can be done using EVENT_BASE as char* pointer located in the instance.
+
+10. The main task of the driver runs event loop run function with 0 timeout parameter to run one event handler per time.
+Each event handler shall be asyncronous to do its work during the time limit defined as a parameter. If the work is not done, postpone it for next event.
+
+
+11. Add the callback method to driver object to call this callback defined in controller object once the connection is completed.
+So, the controller object can start event task.
+
+12. Add support of differently packed float formats in data dictionary.
+
+13. + Add printing the driver EVENT names in the driver log. The events can be concatenated by `|` in the messaage. 
+
+14. Modbus Slave - add separate semaphore on write and read the data in slave read/write handlers.
+
+15. Check timer interrupts placement in IRAM when selected. Use linker.lf file to place all required functions into IRAM when `FMB_TIMER_USE_ISR_DISPATCH_METHOD` is active.
+The `inline __attribute__((always_inline))` attribute does not guarantee to be inlined.
+
+16. add the parent object pointer to mb_base or mb_controller to use it as instance pointer in all objects for debug messages to make clear in the messages which object corresponds to each transaction.
